@@ -777,14 +777,48 @@ export default function App() {
                       <span className={isLocked ? 'text-gray-500' : 'text-white'}>{moduleName}</span>
                     </h3>
                     {isLocked ? (
-                      <div className="rounded-2xl border border-gray-800/50 bg-gray-900/20 p-8 text-center">
-                        <Lock className="w-10 h-10 text-gray-700 mx-auto mb-3" />
-                        <p className="text-gray-500 font-medium">Módulo bloqueado</p>
-                        <p className="text-sm text-gray-600 mt-1">
+                      <div className="space-y-3">
+                        {/* Banner de aviso */}
+                        <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gray-900/40 border border-gray-800/50 text-sm text-gray-500">
+                          <Lock className="w-4 h-4 text-gray-600 flex-shrink-0" />
                           Conclua{' '}
                           <span className="text-gray-400 font-medium">"{modules[moduleIndex - 1]}"</span>
-                          {' '}para desbloquear este conteúdo
-                        </p>
+                          {' '}para desbloquear este módulo
+                        </div>
+                        {/* Cards bloqueados com thumb */}
+                        {moduleVideos.map((video) => (
+                          <div
+                            key={video.id}
+                            className="flex items-center justify-between p-5 rounded-2xl border border-gray-800/50 bg-gray-900/40 opacity-55 select-none cursor-not-allowed"
+                          >
+                            <div className="flex items-center flex-1 min-w-0 mr-4">
+                              <div className="flex-shrink-0 mr-4 relative w-32 h-20 rounded-lg overflow-hidden bg-gray-800 border border-gray-700 flex items-center justify-center">
+                                {getYouTubeThumbnail(video.url) ? (
+                                  <img
+                                    src={getYouTubeThumbnail(video.url)!}
+                                    alt="Thumbnail"
+                                    className="absolute inset-0 w-full h-full object-cover opacity-40"
+                                  />
+                                ) : (
+                                  <VideoIcon className="w-8 h-8 text-gray-600 absolute" />
+                                )}
+                                <div className="absolute inset-0 flex items-center justify-center z-10">
+                                  <div className="w-10 h-10 rounded-full bg-gray-900/70 flex items-center justify-center">
+                                    <Lock className="w-5 h-5 text-gray-400" />
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <h4 className="text-lg font-medium truncate text-gray-500">
+                                  {video.title}
+                                </h4>
+                                <span className="text-sm text-gray-600 flex items-center gap-1 mt-1">
+                                  <Lock className="w-3 h-3" /> Bloqueado
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     ) : (
                     <div className="space-y-3">
