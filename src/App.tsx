@@ -3,12 +3,19 @@ import { Play, CheckCircle, Circle, Plus, Award, Download, Trash2, Video as Vide
 import { QuizManager } from './components/quiz/QuizManager';
 import { QuizTaker } from './components/quiz/QuizTaker';
 import { QuizBadge } from './components/quiz/QuizBadge';
+import { VideoNotes } from './components/VideoNotes';
 import { motion, AnimatePresence } from 'motion/react';
 import { Toaster, toast } from 'sonner';
 import ReactPlayer from 'react-player';
 import ReactMarkdown from 'react-markdown';
 import { supabase } from './lib/supabase';
 import { certificadoBase64 } from './assets/certificadoBase64';
+
+const formatTime = (seconds: number) => {
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}:${s.toString().padStart(2, '0')}`;
+};
 
 type User = {
   id: string;
@@ -225,6 +232,12 @@ export default function App() {
   const [playbackRate, setPlaybackRate] = useState(1);
   const [isPlaying, setIsPlaying] = useState(true);
 
+  // Resume watching state
+  const [videoPositions, setVideoPositions] = useState<Record<string, number>>({});
+  const [seekToTime, setSeekToTime] = useState<number>(0);
+  const hasSekedRef = useRef<boolean>(false);
+  const lastSavedPositionRef = useRef<number>(0);
+
   // Supabase Auth Listener
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -291,16 +304,39 @@ export default function App() {
   };
 
   const fetchProgress = async (userId: string) => {
-    const { data, error } = await supabase.from('user_progress').select('video_id, completed').eq('user_id', userId);
+    const { data, error } = await supabase
+      .from('user_progress')
+      .select('video_id, completed, last_position')
+      .eq('user_id', userId);
     if (error) {
       console.error('Erro ao buscar progresso:', error);
     } else if (data) {
       const progressMap: Record<string, boolean> = {};
-      data.forEach(p => {
-        progressMap[p.video_id] = p.completed;
+      const positionsMap: Record<string, number> = {};
+      data.forEach((p: any) => {
+        if (p.completed) progressMap[p.video_id] = true;
+        if (p.last_position && p.last_position > 10) {
+          const cur = positionsMap[p.video_id] ?? 0;
+          if (p.last_position > cur) positionsMap[p.video_id] = p.last_position;
+        }
       });
       setUserProgress(progressMap);
+      setVideoPositions(positionsMap);
     }
+  };
+
+  const saveVideoPosition = async (videoId: string, position: number) => {
+    if (!user || position < 10) return;
+    setVideoPositions(prev => ({ ...prev, [videoId]: position }));
+    await supabase.from('user_progress').upsert(
+      {
+        user_id: user.id,
+        video_id: videoId,
+        completed: userProgress[videoId] ?? false,
+        last_position: position,
+      },
+      { onConflict: 'user_id,video_id' }
+    );
   };
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -388,15 +424,25 @@ export default function App() {
   };
 
   const openVideo = (video: Video) => {
+    const alreadyDone = userProgress[video.id] ?? false;
+    const savedPos = !alreadyDone && (videoPositions[video.id] ?? 0) > 30
+      ? videoPositions[video.id]
+      : 0;
     setActiveVideo(video);
-    setWatchedSeconds(0);
-    setLastPlayedSeconds(0);
+    setSeekToTime(savedPos);
+    setWatchedSeconds(savedPos);
+    setLastPlayedSeconds(savedPos);
+    hasSekedRef.current = false;
+    lastSavedPositionRef.current = savedPos;
     setDuration(0);
     setIsPlaying(true);
     setPlaybackRate(1);
   };
 
   const closeVideo = () => {
+    if (activeVideo && user && lastPlayedSeconds > 10) {
+      saveVideoPosition(activeVideo.id, lastPlayedSeconds);
+    }
     setActiveVideo(null);
   };
 
@@ -717,13 +763,30 @@ export default function App() {
                 const progress = getModuleProgress(moduleName);
                 const isComplete = progress.percent === 100;
                 const canGetCertificate = isComplete && (quizPassed[moduleName] ?? false);
+                const isLocked = !user.isAdmin && moduleIndex > 0
+                  && getModuleProgress(modules[moduleIndex - 1]).percent < 100;
 
                 return (
                   <div key={moduleName} className="mb-8">
-                    <h3 className="text-xl font-semibold text-white mb-4 flex items-center">
-                      <Sparkles className="w-5 h-5 mr-2 text-cyan-400" />
-                      {moduleName}
+                    <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                      {isLocked ? (
+                        <Lock className="w-5 h-5 text-gray-600" />
+                      ) : (
+                        <Sparkles className="w-5 h-5 text-cyan-400" />
+                      )}
+                      <span className={isLocked ? 'text-gray-500' : 'text-white'}>{moduleName}</span>
                     </h3>
+                    {isLocked ? (
+                      <div className="rounded-2xl border border-gray-800/50 bg-gray-900/20 p-8 text-center">
+                        <Lock className="w-10 h-10 text-gray-700 mx-auto mb-3" />
+                        <p className="text-gray-500 font-medium">Módulo bloqueado</p>
+                        <p className="text-sm text-gray-600 mt-1">
+                          Conclua{' '}
+                          <span className="text-gray-400 font-medium">"{modules[moduleIndex - 1]}"</span>
+                          {' '}para desbloquear este conteúdo
+                        </p>
+                      </div>
+                    ) : (
                     <div className="space-y-3">
                       {moduleVideos.map((video, index) => {
                         const isCompleted = userProgress[video.id];
@@ -763,13 +826,18 @@ export default function App() {
                                 <h4 className={`text-lg font-medium truncate ${isCompleted ? 'text-gray-400' : 'text-gray-100'}`}>
                                   {video.title}
                                 </h4>
-                                <button 
+                                <button
                                   onClick={() => openVideo(video)}
                                   className="text-sm text-pink-400 hover:text-pink-300 hover:underline inline-flex items-center mt-1"
                                 >
                                   <Play className="w-3 h-3 mr-1" />
                                   Assistir Aula
                                 </button>
+                                {videoPositions[video.id] && !userProgress[video.id] && (
+                                  <span className="text-xs text-amber-400 flex items-center gap-1 mt-1">
+                                    ↩ Continuar de {formatTime(videoPositions[video.id])}
+                                  </span>
+                                )}
                               </div>
                             </div>
                             
@@ -824,6 +892,7 @@ export default function App() {
                         </div>
                       </motion.div>
                     </div>
+                    )}
                   </div>
                 );
               })
@@ -883,8 +952,15 @@ export default function App() {
                   playbackRate={playbackRate}
                   onError={(e) => console.error('Erro no player:', e)}
                   onDurationChange={(e) => {
-                    const duration = e.currentTarget.duration;
-                    if (duration) setDuration(duration);
+                    const dur = e.currentTarget.duration;
+                    if (dur) {
+                      setDuration(dur);
+                      if (seekToTime > 30 && !hasSekedRef.current) {
+                        hasSekedRef.current = true;
+                        e.currentTarget.currentTime = seekToTime;
+                        toast.info(`▶ Retomando de ${formatTime(seekToTime)}`, { duration: 3000 });
+                      }
+                    }
                   }}
                   onTimeUpdate={(e) => {
                     const playedSeconds = e.currentTarget.currentTime;
@@ -898,15 +974,25 @@ export default function App() {
                     
                     setLastPlayedSeconds(playedSeconds);
 
+                    // Save position every 10 s (throttled)
+                    if (Math.abs(playedSeconds - lastSavedPositionRef.current) >= 10) {
+                      lastSavedPositionRef.current = playedSeconds;
+                      if (activeVideo && user) saveVideoPosition(activeVideo.id, playedSeconds);
+                    }
+
                     if (duration > 0 && activeVideo && user) {
                       const percentWatched = nextWatchedSeconds / duration;
                       if (percentWatched >= 0.95 && !userProgress[activeVideo.id]) {
                         setUserProgress(prev => ({ ...prev, [activeVideo.id]: true }));
-                        supabase.from('user_progress').insert([{
-                          user_id: user.id,
-                          video_id: activeVideo.id,
-                          completed: true
-                        }]).then(({ error }) => {
+                        supabase.from('user_progress').upsert(
+                          {
+                            user_id: user.id,
+                            video_id: activeVideo.id,
+                            completed: true,
+                            last_position: playedSeconds,
+                          },
+                          { onConflict: 'user_id,video_id' }
+                        ).then(({ error }) => {
                           if (error) {
                             console.error('Erro ao salvar progresso:', error);
                             setUserProgress(prev => {
@@ -946,6 +1032,9 @@ export default function App() {
                   </div>
                 </div>
               )}
+
+              {/* Notes Section */}
+              <VideoNotes videoId={activeVideo.id} userId={user.id} />
             </div>
           </motion.div>
         )}
