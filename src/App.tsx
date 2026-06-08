@@ -225,25 +225,18 @@ function AuthPage() {
   const [ministry, setMinistry] = useState('');
   const [conversionTime, setConversionTime] = useState('');
 
-  // Helpers para auth — apikey vai na URL (query param), não em headers, para evitar restrição ISO-8859-1
+  // Helpers — apikey na URL, Blob como body para evitar QUALQUER problema com headers
   const sbUrl = (): string => (import.meta.env.VITE_SUPABASE_URL as string) || '';
-  // Strip qualquer caractere fora do alfabeto JWT para garantir header ASCII-safe
-  const sbKey = (): string => {
-    const raw = (import.meta.env.VITE_SUPABASE_ANON_KEY as string) || '';
-    return raw.replace(/[^A-Za-z0-9\-_.]/g, '');
-  };
-  // Monta URL com apikey como query param (Kong gateway do Supabase aceita)
-  const authUrl = (path: string, extra = ''): string =>
-    `${sbUrl()}/auth/v1/${path}?apikey=${sbKey()}${extra}`;
+  const sbKey = (): string => ((import.meta.env.VITE_SUPABASE_ANON_KEY as string) || '').replace(/[^A-Za-z0-9\-_.]/g, '');
+  const authUrl = (path: string, extra = ''): string => `${sbUrl()}/auth/v1/${path}?apikey=${sbKey()}${extra}`;
+  // jsonBlob: transforma objeto em Blob com Content-Type application/json
+  // O browser lê o tipo do Blob automaticamente — nenhum header customizado necessário
+  const jsonBlob = (data: unknown) => new Blob([JSON.stringify(data)], { type: 'application/json' });
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch(authUrl('token', '&grant_type=password'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
+      const res = await fetch(authUrl('token', '&grant_type=password'), { method: 'POST', body: jsonBlob({ email, password }) });
       const json = await res.json();
       if (!res.ok) { toast.error('E-mail ou senha inválidos.'); return; }
       await supabase.auth.setSession({ access_token: json.access_token, refresh_token: json.refresh_token });
@@ -254,12 +247,9 @@ function AuthPage() {
     e.preventDefault();
     if (!email || !password || !name) return;
     try {
-      // Signup via REST — apikey na URL, body em JSON puro, zero header customizado
-      const res = await fetch(authUrl('signup'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
+      // Usa Blob como body: nenhum header customizado é passado ao fetch,
+      // eliminando qualquer possibilidade de erro ISO-8859-1
+      const res = await fetch(authUrl('signup'), { method: 'POST', body: jsonBlob({ email, password }) });
       const json = await res.json();
       if (!res.ok) {
         toast.error('Erro ao cadastrar: ' + (json.message || json.msg || json.error_description || 'Tente novamente.'));
@@ -270,7 +260,6 @@ function AuthPage() {
       if (json.access_token) {
         await supabase.auth.setSession({ access_token: json.access_token, refresh_token: json.refresh_token });
       }
-
       if (userId) {
         await supabase.from('user_profiles').insert({
           user_id: userId, name, birth_date: birthDate, city, church,
@@ -279,7 +268,6 @@ function AuthPage() {
           conversion_time: conversionTime,
         });
       }
-
       await supabase.auth.signOut();
       toast.success('Cadastro realizado! Faça login.');
       setAuthMode('login');
