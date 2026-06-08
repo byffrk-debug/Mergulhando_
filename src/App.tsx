@@ -400,15 +400,19 @@ export default function App() {
 
   const role = useUserRole(user?.id, user?.email);
 
-  // Busca nome do perfil na tabela user_profiles (evita metadados no header)
+  // Busca nome e avatar do perfil na tabela user_profiles
   const resolveUser = async (authUser: { id: string; email?: string }) => {
     const { data: profile } = await supabase
       .from('user_profiles')
-      .select('name')
+      .select('name, avatar_url')
       .eq('user_id', authUser.id)
       .maybeSingle();
     const name = profile?.name || authUser.email?.split('@')[0] || 'Aluno';
-    setUser({ id: authUser.id, name, email: authUser.email || '', isAdmin: authUser.email === 'byffrk@gmail.com' });
+    setUser({
+      id: authUser.id, name, email: authUser.email || '',
+      isAdmin: authUser.email === 'byffrk@gmail.com',
+      avatar_url: profile?.avatar_url ?? undefined,
+    });
   };
 
   // Auth
@@ -499,16 +503,7 @@ export default function App() {
   const renderView = () => {
     switch (currentView.name) {
       case 'home':
-        return (
-          <HomePage
-            videos={videos}
-            userProgress={userProgress}
-            videoPositions={videoPositions}
-            role={role}
-            onNavigate={setCurrentView}
-            onPlayVideo={openVideo}
-          />
-        );
+        return <HomePage onNavigate={setCurrentView} />;
       case 'trilha':
         return (
           <TrackPage
@@ -541,13 +536,13 @@ export default function App() {
       case 'post':
         return <PostDetailPage postId={currentView.postId} channelId={currentView.channelId} user={user} role={role} onNavigate={setCurrentView} />;
       case 'perfil':
-        return <ProfilePage user={user} role={role} videos={videos} userProgress={userProgress} quizPassed={quizPassed} />;
+        return <ProfilePage user={user} role={role} videos={videos} userProgress={userProgress} quizPassed={quizPassed} onAvatarUpdate={(url) => setUser(u => u ? { ...u, avatar_url: url } : u)} />;
       case 'admin':
         return (role === 'admin' || role === 'moderator')
           ? <AdminPage videos={videos} role={role} onVideosChange={fetchVideos} onNavigate={setCurrentView} />
-          : <HomePage videos={videos} userProgress={userProgress} videoPositions={videoPositions} role={role} onNavigate={setCurrentView} onPlayVideo={openVideo} />;
+          : <HomePage onNavigate={setCurrentView} />;
       default:
-        return <HomePage videos={videos} userProgress={userProgress} videoPositions={videoPositions} role={role} onNavigate={setCurrentView} onPlayVideo={openVideo} />;
+        return <HomePage onNavigate={setCurrentView} />;
     }
   };
 

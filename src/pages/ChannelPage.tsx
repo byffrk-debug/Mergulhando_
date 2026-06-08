@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Hash, Plus, Heart, MessageSquare, Pin, Trash2, ChevronLeft, X } from 'lucide-react';
+import { Hash, Plus, Heart, MessageSquare, Pin, Trash2, Pencil, ChevronLeft, X, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { toast } from 'sonner';
 import { useChannels, usePosts } from '../hooks/useCommunity';
 import type { AppView, User, UserRole } from '../types';
 
@@ -15,23 +16,65 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
 }
 
-function getInitials(name: string) {
-  return name.split(' ').map(p => p[0]).slice(0, 2).join('').toUpperCase();
+function Avatar({ name, avatarUrl, size = 8 }: { name: string; avatarUrl?: string; size?: number }) {
+  const initials = name.split(' ').map(p => p[0]).slice(0, 2).join('').toUpperCase();
+  const cls = `w-${size} h-${size} rounded-full flex-shrink-0 overflow-hidden`;
+  if (avatarUrl) {
+    return (
+      <div className={cls}>
+        <img src={avatarUrl} alt={name} className="w-full h-full object-cover" />
+      </div>
+    );
+  }
+  return (
+    <div className={`${cls} bg-gradient-to-br from-cyan-500 to-pink-500 flex items-center justify-center text-xs font-bold text-white`}>
+      {initials}
+    </div>
+  );
 }
 
 export function ChannelPage({ channelId, user, role, onNavigate }: ChannelPageProps) {
   const { channels } = useChannels();
   const channel = channels.find(c => c.id === channelId);
-  const { posts, loading, createPost, deletePost, togglePin, toggleReaction } = usePosts(channelId, user.id);
+  const { posts, loading, createPost, updatePost, deletePost, togglePin, toggleReaction } = usePosts(channelId, user.id);
+
   const [showCompose, setShowCompose] = useState(false);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
+
+  // Edit state
+  const [editingPostId, setEditingPostId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editContent, setEditContent] = useState('');
+  const [saving, setSaving] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!content.trim()) return;
     await createPost(title, content, user.id);
     setTitle(''); setContent(''); setShowCompose(false);
+  };
+
+  const startEdit = (post: { id: string; title?: string; content: string }) => {
+    setEditingPostId(post.id);
+    setEditTitle(post.title ?? '');
+    setEditContent(post.content);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingPostId || !editContent.trim()) return;
+    setSaving(true);
+    const err = await updatePost(editingPostId, editTitle, editContent);
+    setSaving(false);
+    if (err) { toast.error('Erro ao salvar: ' + err.message); return; }
+    toast.success('Post atualizado.');
+    setEditingPostId(null);
+  };
+
+  const handleDelete = async (postId: string) => {
+    if (!confirm('Excluir esta publicação?')) return;
+    await deletePost(postId);
+    toast.success('Publicação excluída.');
   };
 
   return (
@@ -133,19 +176,55 @@ export function ChannelPage({ channelId, user, role, onNavigate }: ChannelPagePr
 
               {/* Author */}
               <div className="flex items-center gap-3 mb-3">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-500 to-pink-500 flex items-center justify-center text-xs font-bold text-white flex-shrink-0">
-                  {getInitials(post.user_id === user.id ? user.name : 'Aluno')}
-                </div>
+                <Avatar
+                  name={post.author_name ?? (post.user_id === user.id ? user.name : 'Membro')}
+                  avatarUrl={post.user_id === user.id ? user.avatar_url : post.author_avatar_url}
+                />
                 <div>
                   <p className="text-sm font-medium text-white">
-                    {post.user_id === user.id ? user.name : 'Membro da comunidade'}
+                    {post.author_name ?? (post.user_id === user.id ? user.name : 'Membro da comunidade')}
                   </p>
                   <p className="text-xs text-gray-500">{formatDate(post.created_at)}</p>
                 </div>
               </div>
 
-              {post.title && <h3 className="font-semibold text-white mb-1">{post.title}</h3>}
-              <p className="text-sm text-gray-300 whitespace-pre-wrap line-clamp-4">{post.content}</p>
+              {/* Inline edit (admin) */}
+              {editingPostId === post.id ? (
+                <div className="space-y-2 mb-3">
+                  <input
+                    value={editTitle}
+                    onChange={e => setEditTitle(e.target.value)}
+                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-white text-sm outline-none focus:border-cyan-500"
+                    placeholder="Título (opcional)"
+                  />
+                  <textarea
+                    value={editContent}
+                    onChange={e => setEditContent(e.target.value)}
+                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm outline-none focus:border-cyan-500 min-h-[80px] resize-y"
+                    required
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleSaveEdit}
+                      disabled={saving || !editContent.trim()}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-cyan-500 text-gray-950 text-xs font-bold rounded-lg hover:bg-cyan-400 transition-colors disabled:opacity-50"
+                    >
+                      <Check className="w-3.5 h-3.5" /> Salvar
+                    </button>
+                    <button
+                      onClick={() => setEditingPostId(null)}
+                      className="px-3 py-1.5 bg-gray-700 text-gray-300 text-xs rounded-lg hover:bg-gray-600 transition-colors"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {post.title && <h3 className="font-semibold text-white mb-1">{post.title}</h3>}
+                  <p className="text-sm text-gray-300 whitespace-pre-wrap line-clamp-4">{post.content}</p>
+                </>
+              )}
 
               {/* Actions */}
               <div className="flex items-center gap-4 mt-4 pt-3 border-t border-gray-800">
@@ -163,6 +242,7 @@ export function ChannelPage({ channelId, user, role, onNavigate }: ChannelPagePr
                   <MessageSquare className="w-4 h-4" />
                   {post.comment_count ?? 0} comentário{(post.comment_count ?? 0) !== 1 ? 's' : ''}
                 </button>
+
                 <div className="ml-auto flex items-center gap-2">
                   {(role === 'admin' || role === 'moderator') && (
                     <button
@@ -172,10 +252,20 @@ export function ChannelPage({ channelId, user, role, onNavigate }: ChannelPagePr
                       <Pin className="w-3.5 h-3.5" />
                     </button>
                   )}
-                  {(role === 'admin' || role === 'moderator' || post.user_id === user.id) && (
+                  {role === 'admin' && editingPostId !== post.id && (
                     <button
-                      onClick={() => deletePost(post.id)}
+                      onClick={() => startEdit(post)}
+                      className="text-gray-600 hover:text-cyan-400 hover:bg-cyan-400/10 p-1.5 rounded-lg transition-colors"
+                      title="Editar post"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                  {(role === 'admin' || post.user_id === user.id) && (
+                    <button
+                      onClick={() => handleDelete(post.id)}
                       className="text-gray-600 hover:text-red-400 hover:bg-red-400/10 p-1.5 rounded-lg transition-colors"
+                      title="Excluir post"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>

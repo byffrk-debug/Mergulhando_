@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Plus, Trash2, BookOpen, Megaphone, Users, FileText, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, Trash2, BookOpen, Megaphone, Users, FileText, ChevronDown, ChevronUp, Home } from 'lucide-react';
+import { useHomeConfig } from '../hooks/useHomeConfig';
 import { motion, AnimatePresence } from 'motion/react';
 import { useTracks } from '../hooks/useTracks';
 import { useAnnouncements } from '../hooks/useAnnouncements';
@@ -49,6 +50,13 @@ function Section({ title, icon: Icon, children }: { title: string; icon: React.E
 export function AdminPage({ videos, role, onVideosChange, onNavigate }: AdminPageProps) {
   const { tracks, addTrack, deleteTrack, addModuleToTrack, removeModuleFromTrack, getTrackModules } = useTracks();
   const { announcements, addAnnouncement, deleteAnnouncement } = useAnnouncements();
+  const { config: homeConfig, updateConfig: updateHomeConfig } = useHomeConfig();
+
+  // Home config form
+  const [homeBanner, setHomeBanner] = useState('');
+  const [homeVideoUrl, setHomeVideoUrl] = useState('');
+  const [homeVideoTitle, setHomeVideoTitle] = useState('');
+  const [savingHome, setSavingHome] = useState(false);
 
   // Video form
   const [newTitle, setNewTitle] = useState('');
@@ -112,9 +120,69 @@ export function AdminPage({ videos, role, onVideosChange, onNavigate }: AdminPag
     toast.success('Aviso adicionado!');
   };
 
+  const handleSaveHomeConfig = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingHome(true);
+    const patch: Record<string, string> = {};
+    if (homeBanner.trim()) patch.banner_image_url = homeBanner.trim();
+    if (homeVideoUrl.trim()) patch.welcome_video_url = homeVideoUrl.trim();
+    if (homeVideoTitle.trim()) patch.welcome_video_title = homeVideoTitle.trim();
+    const err = await updateHomeConfig(patch);
+    setSavingHome(false);
+    if (err) { toast.error('Erro ao salvar: ' + err.message); return; }
+    toast.success('Configurações da Home salvas!');
+    setHomeBanner(''); setHomeVideoUrl(''); setHomeVideoTitle('');
+  };
+
   return (
     <div className="p-6 max-w-4xl mx-auto">
       <h1 className="text-2xl font-bold text-white mb-6">Painel Administrativo</h1>
+
+      {/* Home config */}
+      <Section title="Configurar Início" icon={Home}>
+        <form onSubmit={handleSaveHomeConfig} className="space-y-4 pt-4">
+          <div>
+            <label className="block text-xs text-gray-400 mb-1">URL do Banner (imagem fixa)</label>
+            <input
+              value={homeBanner}
+              onChange={e => setHomeBanner(e.target.value)}
+              placeholder={homeConfig.banner_image_url ?? 'https://...imagem.jpg'}
+              className="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-white outline-none focus:border-cyan-500 text-sm"
+            />
+            {homeConfig.banner_image_url && (
+              <p className="text-xs text-gray-500 mt-1 truncate">Atual: {homeConfig.banner_image_url}</p>
+            )}
+          </div>
+          <div>
+            <label className="block text-xs text-gray-400 mb-1">URL do Vídeo de Boas-Vindas (YouTube)</label>
+            <input
+              value={homeVideoUrl}
+              onChange={e => setHomeVideoUrl(e.target.value)}
+              placeholder={homeConfig.welcome_video_url ?? 'https://youtube.com/watch?v=...'}
+              className="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-white outline-none focus:border-cyan-500 text-sm"
+            />
+            {homeConfig.welcome_video_url && (
+              <p className="text-xs text-gray-500 mt-1 truncate">Atual: {homeConfig.welcome_video_url}</p>
+            )}
+          </div>
+          <div>
+            <label className="block text-xs text-gray-400 mb-1">Título do Vídeo de Boas-Vindas</label>
+            <input
+              value={homeVideoTitle}
+              onChange={e => setHomeVideoTitle(e.target.value)}
+              placeholder={homeConfig.welcome_video_title ?? 'Bem-vindo ao Mergulhando na Palavra'}
+              className="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-white outline-none focus:border-cyan-500 text-sm"
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={savingHome || (!homeBanner.trim() && !homeVideoUrl.trim() && !homeVideoTitle.trim())}
+            className="px-5 py-2 bg-cyan-500 text-gray-950 font-medium rounded-xl hover:bg-cyan-400 transition-colors disabled:opacity-50 text-sm"
+          >
+            {savingHome ? 'Salvando...' : 'Salvar Configurações'}
+          </button>
+        </form>
+      </Section>
 
       {/* Add Video */}
       <Section title="Adicionar Aula" icon={FileText}>

@@ -12,7 +12,7 @@ interface SidebarProps {
 
 const navItems = [
   { icon: Home, label: 'Início', view: { name: 'home' } as AppView },
-  { icon: BookOpen, label: 'Trilhas', view: { name: 'trilha', trackId: '' } as AppView },
+  { icon: BookOpen, label: 'Trilha de Estudos', view: { name: 'trilha', trackId: '' } as AppView },
   { icon: Users, label: 'Comunidade', view: { name: 'comunidade' } as AppView },
   { icon: User, label: 'Meu Perfil', view: { name: 'perfil' } as AppView },
 ];

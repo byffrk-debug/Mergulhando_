@@ -3,6 +3,7 @@ export type User = {
   email: string;
   name: string;
   isAdmin: boolean;
+  avatar_url?: string;
 };
 
 export type Video = {
@@ -50,6 +51,7 @@ export type CommunityPost = {
   created_at: string;
   updated_at: string;
   author_name?: string;
+  author_avatar_url?: string;
   reaction_count?: number;
   comment_count?: number;
   user_reacted?: boolean;
@@ -62,6 +64,7 @@ export type CommunityComment = {
   content: string;
   created_at: string;
   author_name?: string;
+  author_avatar_url?: string;
 };
 
 export type Announcement = {
