@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Plus, Trash2, Sparkles, ChevronDown, ChevronUp, CheckCircle, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
-import { GoogleGenAI } from '@google/genai';
 import { supabase } from '../../lib/supabase';
 import { useQuiz } from '../../hooks/useQuiz';
 import type { QuizQuestion } from '../../types/quiz';
@@ -80,14 +79,11 @@ export function QuizManager({ moduleName, moduleVideos }: Props) {
 
   const handleGenerateAI = async () => {
     if (!quiz) return;
-    const apiKey = import.meta.env.VITE_GEMINI_API_KEY as string | undefined;
-    if (!apiKey) { toast.error('Chave da API Gemini não configurada.'); return; }
 
-    const MAX_CHARS = 6000;
     const videosContent = moduleVideos
       .map(v => `Título: ${v.title}${v.content ? `\nConteúdo:\n${v.content.slice(0, 1500)}` : ''}`)
       .join('\n\n---\n\n')
-      .slice(0, MAX_CHARS);
+      .slice(0, 6000);
 
     if (!videosContent.trim()) {
       toast.error('Os vídeos deste módulo não têm material complementar para gerar perguntas.');
@@ -96,24 +92,15 @@ export function QuizManager({ moduleName, moduleVideos }: Props) {
 
     setGenerating(true);
     try {
-      const ai = new GoogleGenAI({ apiKey });
-      const prompt = `Crie 5 perguntas de múltipla escolha sobre o módulo "${moduleName}" com base neste conteúdo:
-
-${videosContent}
-
-Retorne APENAS JSON válido, sem markdown:
-[{"question_text":"...","options":["A","B","C","D"],"correct_index":0}]`;
-
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.0-flash',
-        contents: prompt,
+      const res = await fetch('/api/generate-quiz', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ moduleName, videosContent }),
       });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? 'Erro no servidor');
 
-      const text = response.text ?? '';
-      const jsonMatch = text.match(/\[[\s\S]*\]/);
-      if (!jsonMatch) throw new Error('Resposta inválida da IA');
-
-      const raw: DraftQuestion[] = JSON.parse(jsonMatch[0]);
+      const raw: DraftQuestion[] = json.questions;
       // Sanitizar e truncar campos vindos da IA
       const parsed: DraftQuestion[] = raw.map(q => ({
         question_text: String(q.question_text ?? '').slice(0, 500),
