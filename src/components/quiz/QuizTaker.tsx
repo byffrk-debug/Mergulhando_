@@ -186,6 +186,8 @@ export function QuizTaker({ moduleName, userId, onClose, onPassed }: Props) {
               score={result.score}
               passed={result.passed}
               passingScore={quiz.passing_score}
+              questions={questions}
+              answers={answers}
               onRetake={handleRetake}
               onClose={onClose}
             />
