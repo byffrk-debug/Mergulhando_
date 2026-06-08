@@ -227,6 +227,11 @@ function AuthPage() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    // eslint-disable-next-line no-control-regex
+    if (/[^\x00-\xFF]/.test(password)) {
+      toast.error('Senha inválida. Use apenas letras, números e símbolos comuns (!@#$%&*).');
+      return;
+    }
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) toast.error('E-mail ou senha inválidos.');
   };
@@ -234,6 +239,12 @@ function AuthPage() {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password || !name) return;
+    // Validate password: only ISO-8859-1 safe characters allowed
+    // eslint-disable-next-line no-control-regex
+    if (/[^\x00-\xFF]/.test(password)) {
+      toast.error('A senha não pode conter emojis ou caracteres especiais. Use apenas letras, números e símbolos comuns (!@#$%&*).');
+      return;
+    }
     const { error } = await supabase.auth.signUp({
       email, password,
       options: { data: { name, birthDate, city, church, cellGroup: hasCell === 'sim' ? cellGroup : '', ministry: hasMinistry === 'sim' ? ministry : '', conversionTime } },
