@@ -80,7 +80,7 @@ export function QuizManager({ moduleName, moduleVideos }: Props) {
 
   const handleGenerateAI = async () => {
     if (!quiz) return;
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY as string | undefined;
     if (!apiKey) { toast.error('Chave da API Gemini não configurada.'); return; }
 
     const MAX_CHARS = 6000;
@@ -105,7 +105,7 @@ Retorne APENAS JSON válido, sem markdown:
 [{"question_text":"...","options":["A","B","C","D"],"correct_index":0}]`;
 
       const response = await ai.models.generateContent({
-        model: 'gemini-3.1-flash-lite-preview',
+        model: 'gemini-2.0-flash',
         contents: prompt,
       });
 
