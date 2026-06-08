@@ -227,11 +227,6 @@ function AuthPage() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    // eslint-disable-next-line no-control-regex
-    if (/[^\x00-\xFF]/.test(password)) {
-      toast.error('Senha inválida. Use apenas letras, números e símbolos comuns (!@#$%&*).');
-      return;
-    }
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) toast.error('E-mail ou senha inválidos.');
   };
@@ -239,18 +234,29 @@ function AuthPage() {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password || !name) return;
-    // Validate password: only ISO-8859-1 safe characters allowed
-    // eslint-disable-next-line no-control-regex
-    if (/[^\x00-\xFF]/.test(password)) {
-      toast.error('A senha não pode conter emojis ou caracteres especiais. Use apenas letras, números e símbolos comuns (!@#$%&*).');
-      return;
+
+    // Step 1: create auth user — sem metadados no signUp para evitar erro de header ISO-8859-1
+    const { data, error } = await supabase.auth.signUp({ email, password });
+    if (error) { toast.error('Erro ao cadastrar: ' + error.message); return; }
+
+    // Step 2: salvar perfil na tabela user_profiles
+    if (data.user) {
+      const { error: profileError } = await supabase.from('user_profiles').insert({
+        user_id: data.user.id,
+        name,
+        birth_date: birthDate,
+        city,
+        church,
+        cell_group: hasCell === 'sim' ? cellGroup : '',
+        ministry: hasMinistry === 'sim' ? ministry : '',
+        conversion_time: conversionTime,
+      });
+      if (profileError) console.error('Erro ao salvar perfil:', profileError.message);
     }
-    const { error } = await supabase.auth.signUp({
-      email, password,
-      options: { data: { name, birthDate, city, church, cellGroup: hasCell === 'sim' ? cellGroup : '', ministry: hasMinistry === 'sim' ? ministry : '', conversionTime } },
-    });
-    if (error) toast.error('Erro ao cadastrar: ' + error.message);
-    else { toast.success('Cadastro realizado! Faça login.'); setAuthMode('login'); setPassword(''); }
+
+    toast.success('Cadastro realizado! Faça login.');
+    setAuthMode('login');
+    setPassword('');
   };
 
   const handleForgot = async (e: React.FormEvent) => {
@@ -376,18 +382,27 @@ export default function App() {
 
   const role = useUserRole(user?.id, user?.email);
 
+  // Busca nome do perfil na tabela user_profiles (evita metadados no header)
+  const resolveUser = async (authUser: { id: string; email?: string }) => {
+    const { data: profile } = await supabase
+      .from('user_profiles')
+      .select('name')
+      .eq('user_id', authUser.id)
+      .maybeSingle();
+    const name = profile?.name || authUser.email?.split('@')[0] || 'Aluno';
+    setUser({ id: authUser.id, name, email: authUser.email || '', isAdmin: authUser.email === 'byffrk@gmail.com' });
+  };
+
   // Auth
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        setUser({ id: session.user.id, name: session.user.user_metadata.name || session.user.email?.split('@')[0] || 'Aluno', email: session.user.email || '', isAdmin: session.user.email === 'byffrk@gmail.com' });
-      }
+      if (session?.user) resolveUser(session.user);
       setLoadingAuth(false);
     }).catch(() => setLoadingAuth(false));
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
-        setUser({ id: session.user.id, name: session.user.user_metadata.name || session.user.email?.split('@')[0] || 'Aluno', email: session.user.email || '', isAdmin: session.user.email === 'byffrk@gmail.com' });
+        resolveUser(session.user);
       } else {
         setUser(null);
       }
