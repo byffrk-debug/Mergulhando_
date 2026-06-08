@@ -1,218 +1,220 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Play, CheckCircle, Plus, Award, Download, Trash2, Video as VideoIcon, Sparkles, LogOut, X, Lock, Mail, User as UserIcon, FileText, ChevronDown } from 'lucide-react';
-import { QuizManager } from './components/quiz/QuizManager';
-import { QuizTaker } from './components/quiz/QuizTaker';
-import { QuizBadge } from './components/quiz/QuizBadge';
-import { VideoNotes } from './components/VideoNotes';
+import { Play, CheckCircle, X, FileText, Download, Award, Mail, Lock, User as UserIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Toaster, toast } from 'sonner';
 import ReactPlayer from 'react-player';
 import ReactMarkdown from 'react-markdown';
 import { supabase } from './lib/supabase';
 import { certificadoBase64 } from './assets/certificadoBase64';
+import { AppShell } from './layout/AppShell';
+import { HomePage } from './pages/HomePage';
+import { ModulePage } from './pages/ModulePage';
+import { TrackPage } from './pages/TrackPage';
+import { CommunityPage } from './pages/CommunityPage';
+import { ChannelPage } from './pages/ChannelPage';
+import { PostDetailPage } from './pages/PostDetailPage';
+import { ProfilePage } from './pages/ProfilePage';
+import { AdminPage } from './pages/AdminPage';
+import { QuizTaker } from './components/quiz/QuizTaker';
+import { VideoNotes } from './components/VideoNotes';
+import { useUserRole } from './hooks/useUserRole';
+import { formatTime } from './utils/thumbnail';
+import type { User, Video, AppView } from './types';
 
-const formatTime = (seconds: number) => {
-  const m = Math.floor(seconds / 60);
-  const s = Math.floor(seconds % 60);
-  return `${m}:${s.toString().padStart(2, '0')}`;
-};
+// ─── Certificate Modal ────────────────────────────────────────────────────────
 
-type User = {
-  id: string;
-  email: string;
-  name: string;
-  isAdmin: boolean;
-};
-
-type Video = {
-  id: string;
-  title: string;
-  url: string;
-  module: string;
-  content?: string;
-};
-
-const getYouTubeId = (url: string) => {
-  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
-  const match = url.match(regExp);
-  return (match && match[2].length === 11) ? match[2] : null;
-};
-
-const getYouTubeThumbnail = (url: string) => {
-  const id = getYouTubeId(url);
-  return id ? `https://img.youtube.com/vi/${id}/hqdefault.jpg` : null;
-};
-
-interface CertificateModalProps {
-  moduleName: string;
-  progress: { total: number; completed: number; percent: number };
-  user: { name: string };
-  onClose: () => void;
-}
-
-const CertificateModal = ({ moduleName, progress, user, onClose }: CertificateModalProps) => {
-  const certificateRef = useRef<HTMLDivElement>(null);
-  const bgImageRef = useRef<HTMLImageElement>(null);
+function CertificateModal({ moduleName, user, onClose }: { moduleName: string; user: User; onClose: () => void }) {
   const [isGenerating, setIsGenerating] = useState(false);
 
   const handleDownload = async () => {
     if (isGenerating) return;
-    
     setIsGenerating(true);
-    const loadingToast = toast.loading('Gerando certificado...');
-    
+    const loadingId = toast.loading('Gerando certificado...');
     try {
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
       if (!ctx) throw new Error('Canvas não suportado');
-
       const img = new Image();
       img.onload = () => {
-        // Set canvas to the exact dimensions of the background image
         canvas.width = img.width;
         canvas.height = img.height;
-
-        // Draw background
         ctx.drawImage(img, 0, 0);
-
-        // Calculate font sizes relative to image height (assuming A4 proportions)
         const nameFontSize = canvas.height * 0.055;
         const moduleFontSize = canvas.height * 0.025;
         const dateFontSize = canvas.height * 0.020;
-
-        // Draw Name (Y: ~31.2%) — truncate if too long
-        const displayName = user.name.length > 60
-          ? user.name.slice(0, 57) + '...'
-          : user.name;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'alphabetic';
-        ctx.fillStyle = '#111827';
+        const displayName = user.name.length > 60 ? user.name.slice(0, 57) + '...' : user.name;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'; ctx.fillStyle = '#111827';
         ctx.font = `${nameFontSize}px "Times New Roman", Times, serif`;
         ctx.fillText(displayName, canvas.width / 2, canvas.height * 0.312);
-
-        // Draw Module Name (Y: ~43.7%)
-        ctx.textAlign = 'center';
-        ctx.fillStyle = '#1f2937';
+        ctx.textAlign = 'center'; ctx.fillStyle = '#1f2937';
         ctx.font = `${moduleFontSize}px Arial, Helvetica, sans-serif`;
         ctx.fillText(moduleName.toUpperCase(), canvas.width / 2, canvas.height * 0.437);
-
-        // Draw Date (X: ~26.2%, Y: ~63.9%)
-        ctx.textAlign = 'center';
-        ctx.fillStyle = '#1f2937';
+        ctx.textAlign = 'center'; ctx.fillStyle = '#1f2937';
         ctx.font = `${dateFontSize}px Arial, Helvetica, sans-serif`;
         ctx.fillText(new Date().toLocaleDateString('pt-BR'), canvas.width * 0.262, canvas.height * 0.639);
-
-        // Generate Image URL
         const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
-        
-        // Trigger Download
         const link = document.createElement('a');
         link.download = `Certificado_${moduleName.replace(/\s+/g, '_')}.jpg`;
-        link.href = dataUrl;
-        link.click();
-
-        toast.success('Certificado baixado com sucesso!', { id: loadingToast });
+        link.href = dataUrl; link.click();
+        toast.success('Certificado baixado!', { id: loadingId });
         setIsGenerating(false);
       };
-      
-      img.onerror = () => {
-        toast.error('Erro ao carregar a imagem base do certificado.', { id: loadingToast });
-        setIsGenerating(false);
-      };
-      
+      img.onerror = () => { toast.error('Erro ao carregar imagem.', { id: loadingId }); setIsGenerating(false); };
       img.src = certificadoBase64;
-    } catch (error) {
-      console.error('Error generating image', error);
-      toast.error('Erro ao gerar o certificado.', { id: loadingToast });
+    } catch {
+      toast.error('Erro ao gerar certificado.', { id: loadingId });
       setIsGenerating(false);
     }
   };
 
-  const isComplete = progress.percent === 100;
-
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md overflow-y-auto"
-    >
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md overflow-y-auto">
       <div className="relative w-full max-w-4xl my-8">
         <button onClick={onClose} className="absolute -top-12 right-0 text-gray-400 hover:text-white p-2 rounded-lg hover:bg-gray-800 transition-colors z-10">
           <X className="w-8 h-8" />
         </button>
-
-        <div className="relative rounded-2xl overflow-hidden bg-gray-900 border border-gray-800 shadow-2xl">
-          
-          {/* Certificate Container */}
+        <div className="rounded-2xl overflow-hidden bg-gray-900 border border-gray-800 shadow-2xl">
           <div className="relative">
-            {/* The Certificate itself */}
-            <div 
-              ref={certificateRef}
-              className={`w-full aspect-[1.414/1] relative flex flex-col items-center justify-center overflow-hidden bg-white`}
-            >
-              {/* Background Image */}
-              <img 
-                ref={bgImageRef}
-                src={certificadoBase64} 
-                alt="Certificado Background" 
-                className="absolute inset-0 w-full h-full object-cover z-0"
-              />
-
-              {/* Overlay Text - Absolute positioning for precise alignment */}
+            <div className="w-full aspect-[1.414/1] relative flex flex-col items-center justify-center overflow-hidden bg-white">
+              <img src={certificadoBase64} alt="Certificado" className="absolute inset-0 w-full h-full object-cover z-0" />
               <div className="absolute inset-0 z-10">
-                
-                {/* Student Name */}
                 <div className="absolute w-full text-center px-12" style={{ top: '31.2%', transform: 'translateY(-100%)' }}>
-                  <h2 className="text-2xl md:text-3xl lg:text-4xl font-normal text-gray-900 tracking-wide leading-none" style={{ fontFamily: 'serif' }}>
-                    {user.name}
-                  </h2>
+                  <h2 className="text-2xl md:text-3xl lg:text-4xl font-normal text-gray-900 tracking-wide leading-none" style={{ fontFamily: 'serif' }}>{user.name}</h2>
                 </div>
-                
-                {/* Module Name */}
                 <div className="absolute w-full text-center px-12" style={{ top: '43.7%', transform: 'translateY(-100%)' }}>
-                  <h3 className="text-lg md:text-xl lg:text-2xl font-medium text-gray-800 uppercase tracking-wider leading-none">
-                    {moduleName}
-                  </h3>
+                  <h3 className="text-lg md:text-xl lg:text-2xl font-medium text-gray-800 uppercase tracking-wider leading-none">{moduleName}</h3>
                 </div>
-                
-                {/* Date */}
                 <div className="absolute text-center w-48" style={{ top: '63.9%', left: '26.2%', transform: 'translate(-50%, -100%)' }}>
                   <p className="font-normal text-gray-800 text-sm md:text-base leading-none">{new Date().toLocaleDateString('pt-BR')}</p>
                 </div>
               </div>
             </div>
           </div>
-
-          {/* Action Footer */}
           <div className="bg-gray-950 p-6 flex justify-center border-t border-gray-800">
-            <button 
-              onClick={handleDownload}
-              className="px-8 py-4 rounded-xl font-bold text-gray-950 bg-cyan-400 hover:bg-cyan-300 transition-colors flex items-center shadow-[0_0_20px_rgba(34,211,238,0.4)]"
-            >
-              <Download className="w-6 h-6 mr-3" />
-              Baixar Certificado (Imagem)
+            <button onClick={handleDownload}
+              className="px-8 py-4 rounded-xl font-bold text-gray-950 bg-cyan-400 hover:bg-cyan-300 transition-colors flex items-center shadow-[0_0_20px_rgba(34,211,238,0.4)]">
+              <Download className="w-6 h-6 mr-3" /> Baixar Certificado
             </button>
           </div>
         </div>
       </div>
     </motion.div>
   );
-};
+}
 
-export default function App() {
-  const [user, setUser] = useState<User | null>(null);
-  const [loadingAuth, setLoadingAuth] = useState(true);
-  const [videos, setVideos] = useState<Video[]>([]);
-  const [userProgress, setUserProgress] = useState<Record<string, boolean>>({});
-  
-  // Auth States
+// ─── Video Player Modal ───────────────────────────────────────────────────────
+
+function VideoPlayerModal({ video, user, userProgress, onComplete, onClose, onSavePosition, seekTo }: {
+  video: Video; user: User; userProgress: Record<string, boolean>;
+  onComplete: (videoId: string) => void; onClose: () => void;
+  onSavePosition: (videoId: string, pos: number) => void; seekTo: number;
+}) {
+  const [watchedSeconds, setWatchedSeconds] = useState(seekTo);
+  const [lastPlayedSeconds, setLastPlayedSeconds] = useState(seekTo);
+  const [duration, setDuration] = useState(0);
+  const [playbackRate, setPlaybackRate] = useState(1);
+  const [isPlaying, setIsPlaying] = useState(true);
+  const hasSeked = useRef(false);
+  const lastSavedPos = useRef(seekTo);
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-start justify-center p-4 bg-black/95 backdrop-blur-md overflow-y-auto">
+      <div className="w-full max-w-5xl bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden shadow-2xl flex flex-col my-auto">
+        {/* Header */}
+        <div className="flex justify-between items-center p-4 border-b border-gray-800 bg-gray-950">
+          <h3 className="text-lg font-medium text-white truncate pr-4">{video.title}</h3>
+          <div className="flex items-center gap-4">
+            <select value={playbackRate} onChange={e => setPlaybackRate(parseFloat(e.target.value))}
+              className="bg-gray-800 text-white text-sm rounded-lg px-2 py-1 border border-gray-700 outline-none focus:border-cyan-500 cursor-pointer">
+              {[0.5, 0.75, 1, 1.25, 1.5, 1.75, 2].map(r => (
+                <option key={r} value={r}>{r === 1 ? '1x (Normal)' : `${r}x`}</option>
+              ))}
+            </select>
+            <button onClick={onClose} className="text-gray-400 hover:text-white p-1 rounded-lg hover:bg-gray-800 transition-colors">
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+        </div>
+
+        {/* Player */}
+        <div className="relative pt-[56.25%] bg-black flex-shrink-0">
+          <ReactPlayer
+            key={video.id}
+            src={video.url}
+            className="absolute top-0 left-0"
+            width="100%" height="100%"
+            controls playing={isPlaying} playbackRate={playbackRate}
+            onPlay={() => setIsPlaying(true)}
+            onPause={() => setIsPlaying(false)}
+            onEnded={() => setIsPlaying(false)}
+            onError={e => console.error('Erro no player:', e)}
+            onDurationChange={e => {
+              const dur = e.currentTarget.duration;
+              if (dur) {
+                setDuration(dur);
+                if (seekTo > 30 && !hasSeked.current) {
+                  hasSeked.current = true;
+                  e.currentTarget.currentTime = seekTo;
+                  toast.info(`▶ Retomando de ${formatTime(seekTo)}`, { duration: 3000 });
+                }
+              }
+            }}
+            onTimeUpdate={e => {
+              const playedSeconds = e.currentTarget.currentTime;
+              const diff = playedSeconds - lastPlayedSeconds;
+              let nextWatched = watchedSeconds;
+              if (diff > 0 && diff < 2) { nextWatched = watchedSeconds + diff; setWatchedSeconds(nextWatched); }
+              setLastPlayedSeconds(playedSeconds);
+              if (Math.abs(playedSeconds - lastSavedPos.current) >= 10) {
+                lastSavedPos.current = playedSeconds;
+                onSavePosition(video.id, playedSeconds);
+              }
+              if (duration > 0 && nextWatched / duration >= 0.95 && !userProgress[video.id]) {
+                onComplete(video.id);
+              }
+            }}
+          />
+        </div>
+
+        {/* Progress bar */}
+        <div className="p-4 bg-gray-950 flex justify-between items-center text-sm border-b border-gray-800 flex-shrink-0">
+          <div className="text-gray-400">
+            Visualização: <span className="text-cyan-400 font-mono">{duration > 0 ? Math.round((watchedSeconds / duration) * 100) : 0}%</span>
+            <span className="ml-2 text-xs text-gray-500">(95% para concluir)</span>
+          </div>
+          {userProgress[video.id] && (
+            <div className="flex items-center text-cyan-400 font-medium">
+              <CheckCircle className="w-4 h-4 mr-1" /> Concluída
+            </div>
+          )}
+        </div>
+
+        {/* Content */}
+        {video.content && (
+          <div className="p-6 bg-gray-900 overflow-y-auto max-h-[35vh] custom-scrollbar">
+            <h4 className="text-lg font-semibold text-white mb-4 flex items-center">
+              <FileText className="w-5 h-5 mr-2 text-pink-400" /> Material Complementar
+            </h4>
+            <div className="prose prose-invert prose-cyan max-w-none">
+              <ReactMarkdown>{video.content}</ReactMarkdown>
+            </div>
+          </div>
+        )}
+        <VideoNotes videoId={video.id} userId={user.id} />
+      </div>
+    </motion.div>
+  );
+}
+
+// ─── Auth Pages ───────────────────────────────────────────────────────────────
+
+function AuthPage() {
   const [authMode, setAuthMode] = useState<'login' | 'register' | 'forgot'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [forgotEmail, setForgotEmail] = useState('');
-  
-  // Register States
   const [name, setName] = useState('');
   const [birthDate, setBirthDate] = useState('');
   const [city, setCity] = useState('');
@@ -223,964 +225,311 @@ export default function App() {
   const [ministry, setMinistry] = useState('');
   const [conversionTime, setConversionTime] = useState('');
 
-  // Admin States
-  const [newTitle, setNewTitle] = useState('');
-  const [newUrl, setNewUrl] = useState('');
-  const [newModule, setNewModule] = useState('');
-  const [newContent, setNewContent] = useState('');
-
-  // Quiz States
-  const [activeQuizModule, setActiveQuizModule] = useState<string | null>(null);
-  const [quizPassed, setQuizPassed] = useState<Record<string, boolean>>({});
-
-  // Player States
-  const [activeVideo, setActiveVideo] = useState<Video | null>(null);
-  const [activeCertificateModule, setActiveCertificateModule] = useState<string | null>(null);
-  const [watchedSeconds, setWatchedSeconds] = useState(0);
-  const [lastPlayedSeconds, setLastPlayedSeconds] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const [playbackRate, setPlaybackRate] = useState(1);
-  const [isPlaying, setIsPlaying] = useState(true);
-
-  // Module expand/collapse state
-  const [expandedModules, setExpandedModules] = useState<Record<string, boolean>>({});
-
-  // Resume watching state
-  const [videoPositions, setVideoPositions] = useState<Record<string, number>>({});
-  const [seekToTime, setSeekToTime] = useState<number>(0);
-  const hasSekedRef = useRef<boolean>(false);
-  const lastSavedPositionRef = useRef<number>(0);
-
-  // Supabase Auth Listener
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        setUser({
-          id: session.user.id,
-          name: session.user.user_metadata.name || session.user.email?.split('@')[0] || 'Aluno',
-          email: session.user.email || '',
-          isAdmin: session.user.email === 'byffrk@gmail.com'
-        });
-      }
-      setLoadingAuth(false);
-    }).catch((error) => {
-      console.error('Error getting session:', error);
-      setLoadingAuth(false);
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) {
-        setUser({
-          id: session.user.id,
-          name: session.user.user_metadata.name || session.user.email?.split('@')[0] || 'Aluno',
-          email: session.user.email || '',
-          isAdmin: session.user.email === 'byffrk@gmail.com'
-        });
-      } else {
-        setUser(null);
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  // Fetch Data from Supabase
-  useEffect(() => {
-    if (user) {
-      fetchVideos();
-      fetchProgress(user.id);
-      fetchQuizPassed(user.id);
-    }
-  }, [user]);
-
-  // Initialize module expand state once videos + progress are loaded
-  useEffect(() => {
-    if (videos.length === 0) return;
-    setExpandedModules(prev => {
-      const next = { ...prev };
-      const moduleList = Array.from(new Set(videos.map(v => v.module)));
-      moduleList.forEach(mod => {
-        if (mod in next) return; // preserve manual toggles
-        const modVids = videos.filter(v => v.module === mod);
-        const allDone = modVids.length > 0 && modVids.every(v => userProgress[v.id]);
-        next[mod] = !allDone; // open if not complete, closed if complete
-      });
-      return next;
-    });
-  }, [videos, userProgress]);
-
-  const fetchVideos = async () => {
-    const { data, error } = await supabase
-      .from('videos')
-      .select('id, title, url, module, content')
-      .order('created_at', { ascending: true });
-    if (error) {
-      console.error('Erro ao buscar vídeos:', error);
-    } else if (data) {
-      setVideos(data);
-    }
-  };
-
-  const fetchQuizPassed = async (userId: string) => {
-    const { data } = await supabase
-      .from('quiz_attempts')
-      .select('quiz_id, passed, quizzes(module_name)')
-      .eq('user_id', userId)
-      .eq('passed', true);
-
-    const passed: Record<string, boolean> = {};
-    (data ?? []).forEach((a: any) => {
-      if (a.quizzes?.module_name) passed[a.quizzes.module_name] = true;
-    });
-    setQuizPassed(passed);
-  };
-
-  const fetchProgress = async (userId: string) => {
-    const { data, error } = await supabase
-      .from('user_progress')
-      .select('video_id, completed, last_position')
-      .eq('user_id', userId);
-    if (error) {
-      console.error('Erro ao buscar progresso:', error);
-    } else if (data) {
-      const progressMap: Record<string, boolean> = {};
-      const positionsMap: Record<string, number> = {};
-      data.forEach((p: any) => {
-        if (p.completed) progressMap[p.video_id] = true;
-        if (p.last_position && p.last_position > 10) {
-          const cur = positionsMap[p.video_id] ?? 0;
-          if (p.last_position > cur) positionsMap[p.video_id] = p.last_position;
-        }
-      });
-      setUserProgress(progressMap);
-      setVideoPositions(positionsMap);
-    }
-  };
-
-  const saveVideoPosition = async (videoId: string, position: number) => {
-    if (!user || position < 10) return;
-    setVideoPositions(prev => ({ ...prev, [videoId]: position }));
-    await supabase.from('user_progress').upsert(
-      {
-        user_id: user.id,
-        video_id: videoId,
-        completed: userProgress[videoId] ?? false,
-        last_position: position,
-      },
-      { onConflict: 'user_id,video_id' }
-    );
-  };
-
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) {
-      console.error('[login]', error.message);
-      toast.error('E-mail ou senha inválidos. Tente novamente.');
-    }
+    if (error) toast.error('E-mail ou senha inválidos.');
   };
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password || !name) return;
-    
     const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          name,
-          birthDate,
-          city,
-          church,
-          cellGroup: hasCell === 'sim' ? cellGroup : '',
-          ministry: hasMinistry === 'sim' ? ministry : '',
-          conversionTime
-        }
-      }
+      email, password,
+      options: { data: { name, birthDate, city, church, cellGroup: hasCell === 'sim' ? cellGroup : '', ministry: hasMinistry === 'sim' ? ministry : '', conversionTime } },
     });
-
-    if (error) {
-      console.error('[register]', error.message);
-      toast.error('Erro ao cadastrar. Verifique os dados e tente novamente.');
-    } else {
-      toast.success('Cadastro realizado com sucesso! Você já pode fazer login.');
-      setAuthMode('login');
-      setPassword('');
-    }
+    if (error) toast.error('Erro ao cadastrar: ' + error.message);
+    else { toast.success('Cadastro realizado! Faça login.'); setAuthMode('login'); setPassword(''); }
   };
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    setUser(null);
-    setUserProgress({});
-  };
-
-  const handleAddVideo = async (e: React.FormEvent) => {
+  const handleForgot = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newTitle.trim() || !newUrl.trim() || !newModule.trim()) return;
-    if (newTitle.length > 200)   { toast.error('Título muito longo (máx. 200 caracteres).'); return; }
-    if (newModule.length > 100)  { toast.error('Nome do módulo muito longo (máx. 100 caracteres).'); return; }
-    if (newContent.length > 50000) { toast.error('Material complementar muito longo (máx. 50 000 caracteres).'); return; }
-    try { new URL(newUrl); } catch { toast.error('URL do vídeo inválida.'); return; }
-    
-    const { data, error } = await supabase.from('videos').insert([{
-      title: newTitle,
-      url: newUrl,
-      module: newModule,
-      content: newContent || null
-    }]).select();
-
-    if (error) {
-      toast.error('Erro ao adicionar aula: ' + error.message);
-    } else if (data) {
-      setVideos([...videos, data[0]]);
-      setNewTitle('');
-      setNewUrl('');
-      toast.success('Aula adicionada com sucesso!');
-    }
+    const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail, { redirectTo: `${window.location.origin}/?reset=true` });
+    if (error) toast.error(error.message);
+    else { toast.success('Link enviado! Verifique seu e-mail.'); setForgotEmail(''); setAuthMode('login'); }
   };
-
-  const deleteVideo = async (id: string) => {
-    // Custom confirm using toast
-    toast('Tem certeza que deseja excluir esta aula?', {
-      action: {
-        label: 'Excluir',
-        onClick: async () => {
-          const { error } = await supabase.from('videos').delete().eq('id', id);
-          if (error) {
-            toast.error('Erro ao excluir aula: ' + error.message);
-          } else {
-            setVideos(videos.filter(v => v.id !== id));
-            toast.success('Aula excluída com sucesso!');
-          }
-        }
-      },
-      cancel: {
-        label: 'Cancelar',
-        onClick: () => {}
-      }
-    });
-  };
-
-  const openVideo = (video: Video) => {
-    const alreadyDone = userProgress[video.id] ?? false;
-    const savedPos = !alreadyDone && (videoPositions[video.id] ?? 0) > 30
-      ? videoPositions[video.id]
-      : 0;
-    setActiveVideo(video);
-    setSeekToTime(savedPos);
-    setWatchedSeconds(savedPos);
-    setLastPlayedSeconds(savedPos);
-    hasSekedRef.current = false;
-    lastSavedPositionRef.current = savedPos;
-    setDuration(0);
-    setIsPlaying(true);
-    setPlaybackRate(1);
-  };
-
-  const closeVideo = () => {
-    if (activeVideo && user && lastPlayedSeconds > 10) {
-      saveVideoPosition(activeVideo.id, lastPlayedSeconds);
-    }
-    setActiveVideo(null);
-  };
-
-  const completedCount = videos.filter(v => userProgress[v.id]).length;
-  const totalVideos = videos.length;
-  const progressPercent = totalVideos === 0 ? 0 : Math.round((completedCount / totalVideos) * 100);
-
-  const modules = Array.from(new Set(videos.map(v => v.module)));
-
-  const getModuleProgress = (moduleName: string) => {
-    const moduleVideos = videos.filter(v => v.module === moduleName);
-    const completed = moduleVideos.filter(v => userProgress[v.id]).length;
-    return {
-      total: moduleVideos.length,
-      completed,
-      percent: moduleVideos.length === 0 ? 0 : Math.round((completed / moduleVideos.length) * 100)
-    };
-  };
-
-  if (loadingAuth) {
-    return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-cyan-500"></div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return (
-      <div className="min-h-screen bg-gray-950 text-gray-100 flex items-center justify-center p-4 selection:bg-cyan-500/30">
-        <Toaster theme="dark" position="top-center" />
-        <div className="fixed inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-cyan-600/10 blur-[120px]" />
-          <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-pink-600/10 blur-[120px]" />
-        </div>
-
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="w-full max-w-md bg-gray-900/80 backdrop-blur-md border border-gray-800 rounded-3xl p-8 shadow-2xl relative z-10"
-        >
-          <div className="text-center mb-8">
-            <img src="https://lh3.googleusercontent.com/d/1pJASlSKVV2jccAQOE1X4UYVgQd1m6k1q" alt="Mergulhando na Palavra" className="h-24 mx-auto mb-4 object-contain" referrerPolicy="no-referrer" />
-            <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-pink-500">
-              Mergulhando na Palavra
-            </h1>
-            <p className="text-gray-400 mt-2">Plataforma de Estudo Online</p>
-          </div>
-
-          {authMode === 'login' && (
-            <form onSubmit={handleLogin} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-1">E-mail</label>
-                <div className="relative">
-                  <Mail className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
-                  <input type="email" value={email} onChange={e => setEmail(e.target.value)} required className="w-full bg-gray-950 border border-gray-700 rounded-xl pl-10 pr-4 py-3 text-white focus:ring-2 focus:ring-cyan-500/50 outline-none" placeholder="seu@email.com" />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-1">Senha</label>
-                <div className="relative">
-                  <Lock className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
-                  <input type="password" value={password} onChange={e => setPassword(e.target.value)} required className="w-full bg-gray-950 border border-gray-700 rounded-xl pl-10 pr-4 py-3 text-white focus:ring-2 focus:ring-cyan-500/50 outline-none" placeholder="••••••••" />
-                </div>
-              </div>
-              <div className="flex justify-end">
-                <button type="button" onClick={() => setAuthMode('forgot')} className="text-sm text-cyan-400 hover:underline">Esqueceu a senha?</button>
-              </div>
-              <button type="submit" className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-medium py-3 rounded-xl hover:shadow-[0_0_15px_rgba(34,211,238,0.4)] transition-all">
-                Entrar
-              </button>
-              <div className="text-center mt-4">
-                <span className="text-gray-400">Não tem uma conta? </span>
-                <button type="button" onClick={() => setAuthMode('register')} className="text-pink-400 hover:underline font-medium">Cadastre-se aqui</button>
-              </div>
-            </form>
-          )}
-
-          {authMode === 'forgot' && (
-            <form onSubmit={async (e) => {
-              e.preventDefault();
-              if (!forgotEmail) return;
-              const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail, {
-                redirectTo: `${window.location.origin}/?reset=true`,
-              });
-              if (error) {
-                toast.error('Erro ao enviar link: ' + error.message);
-              } else {
-                toast.success('Link de recuperação enviado! Verifique seu e-mail.');
-                setForgotEmail('');
-                setAuthMode('login');
-              }
-            }} className="space-y-4">
-              <p className="text-gray-300 text-sm text-center mb-4">Digite seu e-mail para receber o link de recuperação de senha.</p>
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-1">E-mail</label>
-                <input
-                  type="email"
-                  required
-                  value={forgotEmail}
-                  onChange={e => setForgotEmail(e.target.value)}
-                  className="w-full bg-gray-950 border border-gray-700 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-cyan-500/50 outline-none"
-                  placeholder="seu@email.com"
-                />
-              </div>
-              <button type="submit" className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-medium py-3 rounded-xl hover:shadow-[0_0_15px_rgba(34,211,238,0.4)] transition-all">
-                Recuperar Senha
-              </button>
-              <button type="button" onClick={() => setAuthMode('login')} className="w-full text-gray-400 hover:text-white py-2">Voltar ao Login</button>
-            </form>
-          )}
-
-          {authMode === 'register' && (
-            <form onSubmit={handleRegister} className="space-y-4 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-1">Nome Completo (para certificado)</label>
-                <input type="text" value={name} onChange={e => setName(e.target.value)} required maxLength={80} className="w-full bg-gray-950 border border-gray-700 rounded-xl px-4 py-2 text-white outline-none focus:border-cyan-500" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-1">E-mail</label>
-                <input type="email" value={email} onChange={e => setEmail(e.target.value)} required className="w-full bg-gray-950 border border-gray-700 rounded-xl px-4 py-2 text-white outline-none focus:border-cyan-500" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-1">Senha</label>
-                <input type="password" value={password} onChange={e => setPassword(e.target.value)} required className="w-full bg-gray-950 border border-gray-700 rounded-xl px-4 py-2 text-white outline-none focus:border-cyan-500" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-1">Data de Nascimento</label>
-                <input type="date" value={birthDate} onChange={e => setBirthDate(e.target.value)} required className="w-full bg-gray-950 border border-gray-700 rounded-xl px-4 py-2 text-white outline-none focus:border-cyan-500" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-1">Cidade que reside</label>
-                <input type="text" value={city} onChange={e => setCity(e.target.value)} required className="w-full bg-gray-950 border border-gray-700 rounded-xl px-4 py-2 text-white outline-none focus:border-cyan-500" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-1">Igreja que frequenta</label>
-                <input type="text" value={church} onChange={e => setChurch(e.target.value)} required className="w-full bg-gray-950 border border-gray-700 rounded-xl px-4 py-2 text-white outline-none focus:border-cyan-500" />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-1">Frequenta célula?</label>
-                <select value={hasCell} onChange={e => setHasCell(e.target.value)} className="w-full bg-gray-950 border border-gray-700 rounded-xl px-4 py-2 text-white outline-none focus:border-cyan-500">
-                  <option value="nao">Não</option>
-                  <option value="sim">Sim</option>
-                </select>
-              </div>
-              {hasCell === 'sim' && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-400 mb-1">Qual célula?</label>
-                  <input type="text" value={cellGroup} onChange={e => setCellGroup(e.target.value)} required className="w-full bg-gray-950 border border-gray-700 rounded-xl px-4 py-2 text-white outline-none focus:border-cyan-500" />
-                </div>
-              )}
-
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-1">Serve em algum ministério?</label>
-                <select value={hasMinistry} onChange={e => setHasMinistry(e.target.value)} className="w-full bg-gray-950 border border-gray-700 rounded-xl px-4 py-2 text-white outline-none focus:border-cyan-500">
-                  <option value="nao">Não</option>
-                  <option value="sim">Sim</option>
-                </select>
-              </div>
-              {hasMinistry === 'sim' && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-400 mb-1">Qual ministério?</label>
-                  <input type="text" value={ministry} onChange={e => setMinistry(e.target.value)} required className="w-full bg-gray-950 border border-gray-700 rounded-xl px-4 py-2 text-white outline-none focus:border-cyan-500" />
-                </div>
-              )}
-
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-1">Quanto tempo de convertido?</label>
-                <input type="text" value={conversionTime} onChange={e => setConversionTime(e.target.value)} required placeholder="Ex: 2 anos" className="w-full bg-gray-950 border border-gray-700 rounded-xl px-4 py-2 text-white outline-none focus:border-cyan-500" />
-              </div>
-
-              <button type="submit" className="w-full bg-gradient-to-r from-pink-500 to-purple-600 text-white font-medium py-3 rounded-xl hover:shadow-[0_0_15px_rgba(236,72,153,0.4)] transition-all mt-4">
-                Finalizar Cadastro
-              </button>
-              <button type="button" onClick={() => setAuthMode('login')} className="w-full text-gray-400 hover:text-white py-2">Já tenho uma conta</button>
-            </form>
-          )}
-        </motion.div>
-      </div>
-    );
-  }
 
   return (
-    <div className="min-h-screen bg-gray-950 text-gray-100 font-sans selection:bg-cyan-500/30 pb-20">
+    <div className="min-h-screen bg-gray-950 text-gray-100 flex items-center justify-center p-4">
       <Toaster theme="dark" position="top-center" />
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-cyan-600/10 blur-[120px]" />
         <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-pink-600/10 blur-[120px]" />
       </div>
-
-      {/* Navbar */}
-      <nav className="border-b border-gray-800 bg-gray-900/50 backdrop-blur-md sticky top-0 z-40">
-        <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center text-cyan-400 font-bold text-xl">
-            <img src="https://lh3.googleusercontent.com/d/1pJASlSKVV2jccAQOE1X4UYVgQd1m6k1q" alt="Logo" className="h-8 mr-3 object-contain" referrerPolicy="no-referrer" />
-            Mergulhando na Palavra
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center text-sm text-gray-300 bg-gray-800/50 px-3 py-1.5 rounded-full border border-gray-700">
-              <UserIcon className="w-4 h-4 mr-2 text-pink-400" />
-              {user.name} {user.isAdmin && <span className="ml-2 text-xs bg-cyan-500/20 text-cyan-300 px-2 py-0.5 rounded">ADM</span>}
-            </div>
-            <button onClick={handleLogout} className="text-gray-400 hover:text-white p-2 rounded-lg hover:bg-gray-800 transition-colors" title="Sair">
-              <LogOut className="w-5 h-5" />
-            </button>
-          </div>
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+        className="w-full max-w-md bg-gray-900/80 backdrop-blur-md border border-gray-800 rounded-3xl p-8 shadow-2xl relative z-10">
+        <div className="text-center mb-8">
+          <img src="https://lh3.googleusercontent.com/d/1pJASlSKVV2jccAQOE1X4UYVgQd1m6k1q" alt="Logo" className="h-24 mx-auto mb-4 object-contain" referrerPolicy="no-referrer" />
+          <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-pink-500">Mergulhando na Palavra</h1>
+          <p className="text-gray-400 mt-2">Plataforma de Estudo Online</p>
         </div>
-      </nav>
 
-      <div className="max-w-4xl mx-auto px-4 py-8 relative z-10">
-        
-        {/* Progress Section */}
-        {!user.isAdmin && (
-          <motion.section 
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="mb-12 p-6 rounded-2xl bg-gray-900/50 border border-gray-800 backdrop-blur-sm relative overflow-hidden"
-          >
-            <div className="absolute top-0 left-0 w-full h-1 bg-gray-800">
-              <motion.div 
-                className="h-full bg-gradient-to-r from-cyan-400 to-pink-500 shadow-[0_0_10px_rgba(236,72,153,0.5)]"
-                initial={{ width: 0 }}
-                animate={{ width: `${progressPercent}%` }}
-                transition={{ duration: 0.5 }}
-              />
+        {authMode === 'login' && (
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-400 mb-1">E-mail</label>
+              <div className="relative"><Mail className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+                <input type="email" value={email} onChange={e => setEmail(e.target.value)} required className="w-full bg-gray-950 border border-gray-700 rounded-xl pl-10 pr-4 py-3 text-white focus:ring-2 focus:ring-cyan-500/50 outline-none" placeholder="seu@email.com" /></div>
             </div>
-            
-            <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-400 mb-1">Senha</label>
+              <div className="relative"><Lock className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+                <input type="password" value={password} onChange={e => setPassword(e.target.value)} required className="w-full bg-gray-950 border border-gray-700 rounded-xl pl-10 pr-4 py-3 text-white focus:ring-2 focus:ring-cyan-500/50 outline-none" placeholder="••••••••" /></div>
+            </div>
+            <div className="flex justify-end">
+              <button type="button" onClick={() => setAuthMode('forgot')} className="text-sm text-cyan-400 hover:underline">Esqueceu a senha?</button>
+            </div>
+            <button type="submit" className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-medium py-3 rounded-xl hover:shadow-[0_0_15px_rgba(34,211,238,0.4)] transition-all">Entrar</button>
+            <div className="text-center mt-4">
+              <span className="text-gray-400">Não tem uma conta? </span>
+              <button type="button" onClick={() => setAuthMode('register')} className="text-pink-400 hover:underline font-medium">Cadastre-se aqui</button>
+            </div>
+          </form>
+        )}
+
+        {authMode === 'forgot' && (
+          <form onSubmit={handleForgot} className="space-y-4">
+            <p className="text-gray-300 text-sm text-center mb-4">Digite seu e-mail para receber o link de recuperação.</p>
+            <input type="email" required value={forgotEmail} onChange={e => setForgotEmail(e.target.value)} className="w-full bg-gray-950 border border-gray-700 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-cyan-500/50 outline-none" placeholder="seu@email.com" />
+            <button type="submit" className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-medium py-3 rounded-xl hover:shadow-[0_0_15px_rgba(34,211,238,0.4)] transition-all">Recuperar Senha</button>
+            <button type="button" onClick={() => setAuthMode('login')} className="w-full text-gray-400 hover:text-white py-2">Voltar ao Login</button>
+          </form>
+        )}
+
+        {authMode === 'register' && (
+          <form onSubmit={handleRegister} className="space-y-4 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+            {[
+              { label: 'Nome Completo (para certificado)', value: name, setter: setName, type: 'text', required: true, maxLength: 80 },
+              { label: 'E-mail', value: email, setter: setEmail, type: 'email', required: true },
+              { label: 'Senha', value: password, setter: setPassword, type: 'password', required: true },
+              { label: 'Data de Nascimento', value: birthDate, setter: setBirthDate, type: 'date', required: true },
+              { label: 'Cidade que reside', value: city, setter: setCity, type: 'text', required: true },
+              { label: 'Igreja que frequenta', value: church, setter: setChurch, type: 'text', required: true },
+            ].map(f => (
+              <div key={f.label}>
+                <label className="block text-sm font-medium text-gray-400 mb-1">{f.label}</label>
+                <input type={f.type} value={f.value} onChange={e => f.setter(e.target.value)} required={f.required} maxLength={f.maxLength}
+                  className="w-full bg-gray-950 border border-gray-700 rounded-xl px-4 py-2 text-white outline-none focus:border-cyan-500" />
+              </div>
+            ))}
+            <div>
+              <label className="block text-sm font-medium text-gray-400 mb-1">Frequenta célula?</label>
+              <select value={hasCell} onChange={e => setHasCell(e.target.value)} className="w-full bg-gray-950 border border-gray-700 rounded-xl px-4 py-2 text-white outline-none focus:border-cyan-500">
+                <option value="nao">Não</option><option value="sim">Sim</option>
+              </select>
+            </div>
+            {hasCell === 'sim' && (
               <div>
-                <h2 className="text-2xl font-semibold text-white mb-2 flex items-center">
-                  Seu Progresso
-                  {progressPercent === 100 && <Award className="w-6 h-6 ml-2 text-yellow-400 drop-shadow-[0_0_8px_rgba(250,204,21,0.5)]" />}
-                </h2>
-                <p className="text-gray-400">
-                  {completedCount} de {totalVideos} aulas concluídas
-                </p>
-                <p className="text-xs text-gray-500 mt-2">
-                  * Assista pelo menos 95% da aula para registrar como concluída.
-                </p>
+                <label className="block text-sm font-medium text-gray-400 mb-1">Qual célula?</label>
+                <input type="text" value={cellGroup} onChange={e => setCellGroup(e.target.value)} required className="w-full bg-gray-950 border border-gray-700 rounded-xl px-4 py-2 text-white outline-none focus:border-cyan-500" />
               </div>
-              
-              <div className="flex items-center justify-center w-24 h-24 rounded-full border-4 border-gray-800 relative">
-                <svg className="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 100 100">
-                  <circle cx="50" cy="50" r="46" fill="none" stroke="currentColor" strokeWidth="8" className="text-gray-800" />
-                  <motion.circle 
-                    cx="50" cy="50" r="46" fill="none" stroke="url(#gradient)" strokeWidth="8" strokeLinecap="round"
-                    strokeDasharray="289.026"
-                    initial={{ strokeDashoffset: 289.026 }}
-                    animate={{ strokeDashoffset: 289.026 - (289.026 * progressPercent) / 100 }}
-                    transition={{ duration: 0.8 }}
-                  />
-                  <defs>
-                    <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                      <stop offset="0%" stopColor="#22d3ee" />
-                      <stop offset="100%" stopColor="#ec4899" />
-                    </linearGradient>
-                  </defs>
-                </svg>
-                <span className="text-2xl font-bold text-white relative z-10">{progressPercent}%</span>
-              </div>
+            )}
+            <div>
+              <label className="block text-sm font-medium text-gray-400 mb-1">Serve em algum ministério?</label>
+              <select value={hasMinistry} onChange={e => setHasMinistry(e.target.value)} className="w-full bg-gray-950 border border-gray-700 rounded-xl px-4 py-2 text-white outline-none focus:border-cyan-500">
+                <option value="nao">Não</option><option value="sim">Sim</option>
+              </select>
             </div>
-          </motion.section>
-        )}
-
-        {/* Admin Add Video Form */}
-        {user.isAdmin && (
-          <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-12">
-            <form onSubmit={handleAddVideo} className="p-6 rounded-2xl bg-gray-900/80 border border-cyan-900/50 shadow-[0_0_15px_rgba(34,211,238,0.1)] backdrop-blur-md">
-              <h3 className="text-lg font-medium text-cyan-400 mb-4 flex items-center">
-                <Plus className="w-5 h-5 mr-2" />
-                Painel ADM: Adicionar Nova Aula
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-400 mb-1">Módulo</label>
-                  <input type="text" value={newModule} onChange={(e) => setNewModule(e.target.value)} required placeholder="Ex: Módulo da Criação" className="w-full bg-gray-950 border border-gray-700 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-cyan-500/50 outline-none" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-400 mb-1">Título da Aula</label>
-                  <input type="text" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} required className="w-full bg-gray-950 border border-gray-700 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-cyan-500/50 outline-none" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-400 mb-1">Link do Vídeo (YouTube)</label>
-                  <input type="url" value={newUrl} onChange={(e) => setNewUrl(e.target.value)} required className="w-full bg-gray-950 border border-gray-700 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-pink-500/50 outline-none" />
-                </div>
-              </div>
-              <div className="mt-4">
-                <label className="block text-sm font-medium text-gray-400 mb-1 flex items-center">
-                  <FileText className="w-4 h-4 mr-1" />
-                  Material Complementar (Opcional - Suporta Markdown)
-                </label>
-                <textarea 
-                  value={newContent} 
-                  onChange={(e) => setNewContent(e.target.value)} 
-                  placeholder="Escreva o resumo da aula, links úteis ou anotações aqui..." 
-                  className="w-full bg-gray-950 border border-gray-700 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-cyan-500/50 outline-none min-h-[120px] resize-y font-mono text-sm"
-                />
-              </div>
-              <div className="mt-6 flex justify-end">
-                <button type="submit" className="bg-cyan-500 text-gray-950 px-6 py-3 rounded-xl font-bold hover:bg-cyan-400 transition-colors flex items-center">
-                  <Plus className="w-5 h-5 mr-2" /> Adicionar Aula
-                </button>
-              </div>
-            </form>
-
-            {/* Quiz Manager por módulo */}
-            {modules.length > 0 && (
-              <div className="mt-6">
-                <h3 className="text-sm font-semibold text-cyan-400 mb-2 uppercase tracking-wide">Gerenciar Quizzes por Módulo</h3>
-                {modules.map(mod => (
-                  <QuizManager
-                    key={mod}
-                    moduleName={mod}
-                    moduleVideos={videos.filter(v => v.module === mod)}
-                  />
-                ))}
+            {hasMinistry === 'sim' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-1">Qual ministério?</label>
+                <input type="text" value={ministry} onChange={e => setMinistry(e.target.value)} required className="w-full bg-gray-950 border border-gray-700 rounded-xl px-4 py-2 text-white outline-none focus:border-cyan-500" />
               </div>
             )}
-          </motion.section>
+            <div>
+              <label className="block text-sm font-medium text-gray-400 mb-1">Quanto tempo de convertido?</label>
+              <input type="text" value={conversionTime} onChange={e => setConversionTime(e.target.value)} required placeholder="Ex: 2 anos" className="w-full bg-gray-950 border border-gray-700 rounded-xl px-4 py-2 text-white outline-none focus:border-cyan-500" />
+            </div>
+            <button type="submit" className="w-full bg-gradient-to-r from-pink-500 to-purple-600 text-white font-medium py-3 rounded-xl hover:shadow-[0_0_15px_rgba(236,72,153,0.4)] transition-all mt-4">Finalizar Cadastro</button>
+            <button type="button" onClick={() => setAuthMode('login')} className="w-full text-gray-400 hover:text-white py-2">Já tenho uma conta</button>
+          </form>
         )}
+      </motion.div>
+    </div>
+  );
+}
 
-        {/* Video List */}
-        <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }}>
-          <h3 className="text-xl font-semibold text-white mb-6 flex items-center">
-            <VideoIcon className="w-6 h-6 mr-3 text-pink-400" />
-            Trilha de Aulas
-          </h3>
-          
-          <div className="space-y-8">
-            {modules.length === 0 ? (
-              <div className="text-center py-12 bg-gray-900/30 rounded-2xl border border-gray-800 border-dashed">
-                <p className="text-gray-500">Nenhuma aula disponível no momento.</p>
-              </div>
-            ) : (
-              modules.map((moduleName, moduleIndex) => {
-                const moduleVideos = videos.filter(v => v.module === moduleName);
-                const progress = getModuleProgress(moduleName);
-                const isComplete = progress.percent === 100;
-                const canGetCertificate = isComplete && (quizPassed[moduleName] ?? false);
-                const isLocked = !user.isAdmin && moduleIndex > 0
-                  && getModuleProgress(modules[moduleIndex - 1]).percent < 100;
+// ─── Main App ─────────────────────────────────────────────────────────────────
 
-                const isExpanded = expandedModules[moduleName] ?? true;
+export default function App() {
+  const [user, setUser] = useState<User | null>(null);
+  const [loadingAuth, setLoadingAuth] = useState(true);
+  const [videos, setVideos] = useState<Video[]>([]);
+  const [userProgress, setUserProgress] = useState<Record<string, boolean>>({});
+  const [videoPositions, setVideoPositions] = useState<Record<string, number>>({});
+  const [quizPassed, setQuizPassed] = useState<Record<string, boolean>>({});
+  const [currentView, setCurrentView] = useState<AppView>({ name: 'home' });
+  const [activeVideo, setActiveVideo] = useState<Video | null>(null);
+  const [activeQuizModule, setActiveQuizModule] = useState<string | null>(null);
+  const [activeCertificateModule, setActiveCertificateModule] = useState<string | null>(null);
 
-                return (
-                  <div key={moduleName} className="mb-6">
-                    {/* Clickable module header */}
-                    <button
-                      onClick={() => setExpandedModules(prev => ({ ...prev, [moduleName]: !isExpanded }))}
-                      className="w-full flex items-center justify-between mb-3 group text-left"
-                    >
-                      <div className="flex items-center gap-2 min-w-0">
-                        {isLocked ? (
-                          <Lock className="w-5 h-5 text-gray-600 flex-shrink-0" />
-                        ) : (
-                          <Sparkles className="w-5 h-5 text-cyan-400 flex-shrink-0" />
-                        )}
-                        <span className={`text-xl font-semibold truncate ${isLocked ? 'text-gray-500' : 'text-white'}`}>
-                          {moduleName}
-                        </span>
-                        {/* Badge compacto quando fechado */}
-                        {!isExpanded && !isLocked && (
-                          <span className={`flex-shrink-0 text-xs px-2 py-0.5 rounded-full ml-1 ${
-                            isComplete
-                              ? 'bg-cyan-500/20 text-cyan-400'
-                              : 'bg-gray-800 text-gray-500'
-                          }`}>
-                            {progress.completed}/{progress.total}{isComplete ? ' ✓' : ''}
-                          </span>
-                        )}
-                      </div>
-                      <ChevronDown
-                        className={`w-5 h-5 flex-shrink-0 ml-3 text-gray-500 group-hover:text-gray-300 transition-transform duration-300 ${
-                          isExpanded ? 'rotate-180' : ''
-                        }`}
-                      />
-                    </button>
+  const role = useUserRole(user?.id, user?.email);
 
-                    {/* Conteúdo expansível */}
-                    <AnimatePresence initial={false}>
-                    {isExpanded && (
-                    <motion.div
-                      key="content"
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: 'auto', opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.25, ease: 'easeInOut' }}
-                      className="overflow-hidden"
-                    >
-                    {isLocked ? (
-                      <div className="space-y-3">
-                        {/* Banner de aviso */}
-                        <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gray-900/40 border border-gray-800/50 text-sm text-gray-500">
-                          <Lock className="w-4 h-4 text-gray-600 flex-shrink-0" />
-                          Conclua{' '}
-                          <span className="text-gray-400 font-medium">"{modules[moduleIndex - 1]}"</span>
-                          {' '}para desbloquear este módulo
-                        </div>
-                        {/* Cards bloqueados com thumb */}
-                        {moduleVideos.map((video) => (
-                          <div
-                            key={video.id}
-                            className="flex items-center justify-between p-5 rounded-2xl border border-gray-800/50 bg-gray-900/40 opacity-55 select-none cursor-not-allowed"
-                          >
-                            <div className="flex items-center flex-1 min-w-0 mr-4">
-                              <div className="flex-shrink-0 mr-4 relative w-32 h-20 rounded-lg overflow-hidden bg-gray-800 border border-gray-700 flex items-center justify-center">
-                                {getYouTubeThumbnail(video.url) ? (
-                                  <img
-                                    src={getYouTubeThumbnail(video.url)!}
-                                    alt="Thumbnail"
-                                    className="absolute inset-0 w-full h-full object-cover opacity-40"
-                                  />
-                                ) : (
-                                  <VideoIcon className="w-8 h-8 text-gray-600 absolute" />
-                                )}
-                                <div className="absolute inset-0 flex items-center justify-center z-10">
-                                  <div className="w-10 h-10 rounded-full bg-gray-900/70 flex items-center justify-center">
-                                    <Lock className="w-5 h-5 text-gray-400" />
-                                  </div>
-                                </div>
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <h4 className="text-lg font-medium truncate text-gray-500">
-                                  {video.title}
-                                </h4>
-                                <span className="text-sm text-gray-600 flex items-center gap-1 mt-1">
-                                  <Lock className="w-3 h-3" /> Bloqueado
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                    <div className="space-y-3">
-                      {moduleVideos.map((video, index) => {
-                        const isCompleted = userProgress[video.id];
-                        return (
-                          <motion.div
-                            key={video.id}
-                            initial={{ opacity: 0, x: -20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: index * 0.05 }}
-                            className={`group flex items-center justify-between p-5 rounded-2xl border transition-all duration-300 ${
-                              isCompleted 
-                                ? 'bg-gray-900/40 border-cyan-900/50 shadow-[0_0_10px_rgba(34,211,238,0.05)]' 
-                                : 'bg-gray-900/80 border-gray-800 hover:border-gray-700'
-                            }`}
-                          >
-                            <div className="flex items-center flex-1 min-w-0 mr-4">
-                              <div className="flex-shrink-0 mr-4 relative w-32 h-20 rounded-lg overflow-hidden bg-gray-800 border border-gray-700 flex items-center justify-center">
-                                {getYouTubeThumbnail(video.url) ? (
-                                  <img 
-                                    src={getYouTubeThumbnail(video.url)!} 
-                                    alt="Thumbnail" 
-                                    className="absolute inset-0 w-full h-full object-cover opacity-60 group-hover:opacity-90 transition-opacity"
-                                  />
-                                ) : (
-                                  <VideoIcon className="w-8 h-8 text-gray-600 absolute" />
-                                )}
-                                <div className="absolute inset-0 flex items-center justify-center z-10">
-                                  {isCompleted ? (
-                                    <CheckCircle className="w-8 h-8 text-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.8)] bg-gray-900/60 rounded-full" />
-                                  ) : (
-                                    <Play className="w-8 h-8 text-white drop-shadow-lg opacity-0 group-hover:opacity-100 transition-opacity bg-cyan-500/80 rounded-full p-1.5" />
-                                  )}
-                                </div>
-                              </div>
-                              
-                              <div className="flex-1 min-w-0">
-                                <h4 className={`text-lg font-medium truncate ${isCompleted ? 'text-gray-400' : 'text-gray-100'}`}>
-                                  {video.title}
-                                </h4>
-                                <button
-                                  onClick={() => openVideo(video)}
-                                  className="text-sm text-pink-400 hover:text-pink-300 hover:underline inline-flex items-center mt-1"
-                                >
-                                  <Play className="w-3 h-3 mr-1" />
-                                  Assistir Aula
-                                </button>
-                                {videoPositions[video.id] && !userProgress[video.id] && (
-                                  <span className="text-xs text-amber-400 flex items-center gap-1 mt-1">
-                                    ↩ Continuar de {formatTime(videoPositions[video.id])}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                            
-                            {user.isAdmin && (
-                              <button onClick={() => deleteVideo(video.id)} className="p-2 text-gray-600 hover:text-red-400 bg-gray-800 hover:bg-red-400/10 rounded-lg transition-colors">
-                                <Trash2 className="w-5 h-5" />
-                              </button>
-                            )}
-                          </motion.div>
-                        );
-                      })}
-                      
-                      {/* Quiz Badge — aparece quando módulo está 100% concluído */}
-                      {isComplete && !user.isAdmin && (
-                        <QuizBadge
-                          moduleName={moduleName}
-                          userId={user.id}
-                          onTakeQuiz={() => setActiveQuizModule(moduleName)}
-                        />
-                      )}
+  // Auth
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        setUser({ id: session.user.id, name: session.user.user_metadata.name || session.user.email?.split('@')[0] || 'Aluno', email: session.user.email || '', isAdmin: session.user.email === 'byffrk@gmail.com' });
+      }
+      setLoadingAuth(false);
+    }).catch(() => setLoadingAuth(false));
 
-                      {/* Certificate Item */}
-                      <motion.div
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: moduleVideos.length * 0.05 }}
-                        onClick={() => canGetCertificate && setActiveCertificateModule(moduleName)}
-                        className={`cursor-pointer group flex items-center justify-between p-5 rounded-2xl border transition-all duration-300 ${
-                          canGetCertificate
-                            ? 'bg-gradient-to-r from-yellow-500/10 to-yellow-600/10 border-yellow-500/50 shadow-[0_0_15px_rgba(234,179,8,0.1)]'
-                            : isComplete
-                              ? 'bg-gradient-to-r from-blue-500/10 to-blue-600/10 border-blue-500/30'
-                              : 'bg-gray-900/80 border-gray-800 hover:border-gray-700'
-                        }`}
-                      >
-                        <div className="flex items-center flex-1 min-w-0 mr-4">
-                          <div className="flex-shrink-0 mr-4">
-                            <Award className={`w-8 h-8 ${canGetCertificate ? 'text-yellow-400 drop-shadow-[0_0_8px_rgba(250,204,21,0.6)]' : isComplete ? 'text-blue-400' : 'text-gray-600'}`} />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h4 className={`text-lg font-medium truncate ${canGetCertificate ? 'text-yellow-400' : isComplete ? 'text-blue-400' : 'text-gray-400'}`}>
-                              Certificado: {moduleName}
-                            </h4>
-                            <p className="text-sm text-gray-500 mt-1">
-                              {canGetCertificate
-                                ? 'Disponível para visualizar/baixar'
-                                : isComplete
-                                  ? 'Complete o quiz do módulo para desbloquear'
-                                  : `Progresso: ${progress.percent}%`}
-                            </p>
-                          </div>
-                        </div>
-                      </motion.div>
-                    </div>
-                    )}
-                    </motion.div>
-                    )}
-                    </AnimatePresence>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </motion.section>
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        setUser({ id: session.user.id, name: session.user.user_metadata.name || session.user.email?.split('@')[0] || 'Aluno', email: session.user.email || '', isAdmin: session.user.email === 'byffrk@gmail.com' });
+      } else {
+        setUser(null);
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, []);
 
+  // Fetch data
+  useEffect(() => {
+    if (user) { fetchVideos(); fetchProgress(user.id); fetchQuizPassed(user.id); }
+  }, [user]);
+
+  const fetchVideos = async () => {
+    const { data } = await supabase.from('videos').select('*').order('order_in_module', { ascending: true }).order('created_at', { ascending: true });
+    if (data) setVideos(data);
+  };
+
+  const fetchProgress = async (userId: string) => {
+    const { data } = await supabase.from('user_progress').select('video_id, completed, last_position').eq('user_id', userId);
+    if (!data) return;
+    const progressMap: Record<string, boolean> = {};
+    const positionsMap: Record<string, number> = {};
+    data.forEach((p: any) => {
+      if (p.completed) progressMap[p.video_id] = true;
+      if (p.last_position && p.last_position > 10) positionsMap[p.video_id] = p.last_position;
+    });
+    setUserProgress(progressMap);
+    setVideoPositions(positionsMap);
+  };
+
+  const fetchQuizPassed = async (userId: string) => {
+    const { data } = await supabase.from('quiz_attempts').select('quiz_id, passed, quizzes(module_name)').eq('user_id', userId).eq('passed', true);
+    const passed: Record<string, boolean> = {};
+    (data ?? []).forEach((a: any) => { if (a.quizzes?.module_name) passed[a.quizzes.module_name] = true; });
+    setQuizPassed(passed);
+  };
+
+  const saveVideoPosition = async (videoId: string, position: number) => {
+    if (!user || position < 10) return;
+    setVideoPositions(prev => ({ ...prev, [videoId]: position }));
+    await supabase.from('user_progress').upsert({ user_id: user.id, video_id: videoId, completed: userProgress[videoId] ?? false, last_position: position }, { onConflict: 'user_id,video_id' });
+  };
+
+  const handleComplete = (videoId: string) => {
+    if (userProgress[videoId]) return;
+    setUserProgress(prev => ({ ...prev, [videoId]: true }));
+    supabase.from('user_progress').upsert({ user_id: user!.id, video_id: videoId, completed: true, last_position: videoPositions[videoId] ?? 0 }, { onConflict: 'user_id,video_id' })
+      .then(({ error }) => {
+        if (error) setUserProgress(prev => { const n = { ...prev }; delete n[videoId]; return n; });
+      });
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setUser(null); setUserProgress({}); setVideos([]);
+  };
+
+  const openVideo = (video: Video) => {
+    const alreadyDone = userProgress[video.id] ?? false;
+    const savedPos = !alreadyDone && (videoPositions[video.id] ?? 0) > 30 ? videoPositions[video.id] : 0;
+    setActiveVideo(video);
+    // pre-fill watched seconds so banner shows correct position
+    void savedPos;
+  };
+
+  if (loadingAuth) {
+    return (
+      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-cyan-500" />
       </div>
+    );
+  }
 
-      {/* Video Player Modal */}
+  if (!user) return <AuthPage />;
+
+  const renderView = () => {
+    switch (currentView.name) {
+      case 'home':
+        return (
+          <HomePage
+            videos={videos}
+            userProgress={userProgress}
+            videoPositions={videoPositions}
+            role={role}
+            onNavigate={setCurrentView}
+            onPlayVideo={openVideo}
+          />
+        );
+      case 'trilha':
+        return (
+          <TrackPage
+            trackId={currentView.trackId}
+            videos={videos}
+            userProgress={userProgress}
+            onNavigate={setCurrentView}
+          />
+        );
+      case 'modulo':
+        return (
+          <ModulePage
+            moduleName={currentView.moduleName}
+            videos={videos.filter(v => v.module === currentView.moduleName)}
+            allVideos={videos}
+            userProgress={userProgress}
+            videoPositions={videoPositions}
+            quizPassed={quizPassed}
+            role={role}
+            onNavigate={setCurrentView}
+            onPlayVideo={openVideo}
+            onOpenQuiz={setActiveQuizModule}
+            onOpenCertificate={setActiveCertificateModule}
+          />
+        );
+      case 'comunidade':
+        return <CommunityPage role={role} onNavigate={setCurrentView} />;
+      case 'canal':
+        return <ChannelPage channelId={currentView.channelId} user={user} role={role} onNavigate={setCurrentView} />;
+      case 'post':
+        return <PostDetailPage postId={currentView.postId} channelId={currentView.channelId} user={user} role={role} onNavigate={setCurrentView} />;
+      case 'perfil':
+        return <ProfilePage user={user} role={role} videos={videos} userProgress={userProgress} quizPassed={quizPassed} />;
+      case 'admin':
+        return (role === 'admin' || role === 'moderator')
+          ? <AdminPage videos={videos} role={role} onVideosChange={fetchVideos} onNavigate={setCurrentView} />
+          : <HomePage videos={videos} userProgress={userProgress} videoPositions={videoPositions} role={role} onNavigate={setCurrentView} onPlayVideo={openVideo} />;
+      default:
+        return <HomePage videos={videos} userProgress={userProgress} videoPositions={videoPositions} role={role} onNavigate={setCurrentView} onPlayVideo={openVideo} />;
+    }
+  };
+
+  return (
+    <>
+      <Toaster theme="dark" position="top-center" />
+      <AppShell user={user} role={role} currentView={currentView} onNavigate={setCurrentView} onLogout={handleLogout} videos={videos}>
+        {renderView()}
+      </AppShell>
+
+      {/* Modals */}
       <AnimatePresence>
         {activeVideo && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-start justify-center p-4 bg-black/95 backdrop-blur-md overflow-y-auto"
-          >
-            <div className="w-full max-w-5xl bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden shadow-2xl flex flex-col my-auto">
-              <div className="flex justify-between items-center p-4 border-b border-gray-800 bg-gray-950">
-                <h3 className="text-lg font-medium text-white truncate pr-4">{activeVideo.title}</h3>
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-400 hidden sm:inline">Velocidade:</span>
-                    <select 
-                      value={playbackRate} 
-                      onChange={(e) => setPlaybackRate(parseFloat(e.target.value))}
-                      className="bg-gray-800 text-white text-sm rounded-lg px-2 py-1 border border-gray-700 outline-none focus:border-cyan-500 cursor-pointer"
-                    >
-                      <option value={0.5}>0.5x</option>
-                      <option value={0.75}>0.75x</option>
-                      <option value={1}>1x (Normal)</option>
-                      <option value={1.25}>1.25x</option>
-                      <option value={1.5}>1.5x</option>
-                      <option value={1.75}>1.75x</option>
-                      <option value={2}>2x</option>
-                    </select>
-                  </div>
-                  <button onClick={closeVideo} className="text-gray-400 hover:text-white p-1 rounded-lg hover:bg-gray-800 transition-colors">
-                    <X className="w-6 h-6" />
-                  </button>
-                </div>
-              </div>
-              
-              <div className="relative pt-[56.25%] bg-black flex-shrink-0">
-                <ReactPlayer
-                  key={activeVideo.id}
-                  src={activeVideo.url} // <-- MUST be src in react-player v3!
-                  className="absolute top-0 left-0"
-                  width="100%"
-                  height="100%"
-                  controls={true}
-                  playing={isPlaying}
-                  onPlay={() => setIsPlaying(true)}
-                  onPause={() => setIsPlaying(false)}
-                  onEnded={() => setIsPlaying(false)}
-                  playbackRate={playbackRate}
-                  onError={(e) => console.error('Erro no player:', e)}
-                  onDurationChange={(e) => {
-                    const dur = e.currentTarget.duration;
-                    if (dur) {
-                      setDuration(dur);
-                      if (seekToTime > 30 && !hasSekedRef.current) {
-                        hasSekedRef.current = true;
-                        e.currentTarget.currentTime = seekToTime;
-                        toast.info(`▶ Retomando de ${formatTime(seekToTime)}`, { duration: 3000 });
-                      }
-                    }
-                  }}
-                  onTimeUpdate={(e) => {
-                    const playedSeconds = e.currentTarget.currentTime;
-                    const diff = playedSeconds - lastPlayedSeconds;
-                    let nextWatchedSeconds = watchedSeconds;
-                    
-                    if (diff > 0 && diff < 2) {
-                      nextWatchedSeconds = watchedSeconds + diff;
-                      setWatchedSeconds(nextWatchedSeconds);
-                    }
-                    
-                    setLastPlayedSeconds(playedSeconds);
-
-                    // Save position every 10 s (throttled)
-                    if (Math.abs(playedSeconds - lastSavedPositionRef.current) >= 10) {
-                      lastSavedPositionRef.current = playedSeconds;
-                      if (activeVideo && user) saveVideoPosition(activeVideo.id, playedSeconds);
-                    }
-
-                    if (duration > 0 && activeVideo && user) {
-                      const percentWatched = nextWatchedSeconds / duration;
-                      if (percentWatched >= 0.95 && !userProgress[activeVideo.id]) {
-                        setUserProgress(prev => ({ ...prev, [activeVideo.id]: true }));
-                        // Auto-collapse module when all videos are done
-                        const modVids = videos.filter(v => v.module === activeVideo.module);
-                        const doneCount = modVids.filter(v => v.id === activeVideo.id || userProgress[v.id]).length;
-                        if (doneCount >= modVids.length) {
-                          setTimeout(() => setExpandedModules(prev => ({ ...prev, [activeVideo.module]: false })), 1800);
-                        }
-                        supabase.from('user_progress').upsert(
-                          {
-                            user_id: user.id,
-                            video_id: activeVideo.id,
-                            completed: true,
-                            last_position: playedSeconds,
-                          },
-                          { onConflict: 'user_id,video_id' }
-                        ).then(({ error }) => {
-                          if (error) {
-                            console.error('Erro ao salvar progresso:', error);
-                            setUserProgress(prev => {
-                              const newProgress = { ...prev };
-                              delete newProgress[activeVideo.id];
-                              return newProgress;
-                            });
-                          }
-                        });
-                      }
-                    }
-                  }}
-                />
-              </div>
-              
-              <div className="p-4 bg-gray-950 flex justify-between items-center text-sm border-b border-gray-800 flex-shrink-0">
-                <div className="text-gray-400">
-                  Progresso da visualização: <span className="text-cyan-400 font-mono">{duration > 0 ? Math.round((watchedSeconds / duration) * 100) : 0}%</span>
-                  <span className="ml-2 text-xs text-gray-500">(Necessário 95% para concluir)</span>
-                </div>
-                {userProgress[activeVideo.id] && (
-                  <div className="flex items-center text-cyan-400 font-medium">
-                    <CheckCircle className="w-4 h-4 mr-1" /> Aula Concluída
-                  </div>
-                )}
-              </div>
-
-              {/* Complementary Content Section */}
-              {activeVideo.content && (
-                <div className="p-6 bg-gray-900 overflow-y-auto max-h-[35vh] custom-scrollbar">
-                  <h4 className="text-lg font-semibold text-white mb-4 flex items-center">
-                    <FileText className="w-5 h-5 mr-2 text-pink-400" />
-                    Material Complementar
-                  </h4>
-                  <div className="prose prose-invert prose-cyan max-w-none">
-                    <ReactMarkdown>{activeVideo.content}</ReactMarkdown>
-                  </div>
-                </div>
-              )}
-
-              {/* Notes Section */}
-              <VideoNotes videoId={activeVideo.id} userId={user.id} />
-            </div>
-          </motion.div>
+          <VideoPlayerModal
+            key={activeVideo.id}
+            video={activeVideo}
+            user={user}
+            userProgress={userProgress}
+            onComplete={handleComplete}
+            onClose={() => setActiveVideo(null)}
+            onSavePosition={saveVideoPosition}
+            seekTo={!userProgress[activeVideo.id] && (videoPositions[activeVideo.id] ?? 0) > 30 ? videoPositions[activeVideo.id] : 0}
+          />
         )}
       </AnimatePresence>
 
-      {/* Quiz Taker Modal */}
       <AnimatePresence>
         {activeQuizModule && (
           <QuizTaker
@@ -1195,17 +544,15 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      {/* Certificate Modal */}
       <AnimatePresence>
         {activeCertificateModule && (
-          <CertificateModal 
-            moduleName={activeCertificateModule} 
-            progress={getModuleProgress(activeCertificateModule)} 
-            user={user} 
-            onClose={() => setActiveCertificateModule(null)} 
+          <CertificateModal
+            moduleName={activeCertificateModule}
+            user={user}
+            onClose={() => setActiveCertificateModule(null)}
           />
         )}
       </AnimatePresence>
-    </div>
+    </>
   );
 }
