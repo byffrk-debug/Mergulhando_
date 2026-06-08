@@ -34,7 +34,7 @@ export function CommunityPage({ role, onNavigate }: CommunityPageProps) {
           </h1>
           <p className="text-gray-400 mt-1">Conecte-se, tire dúvidas e compartilhe experiências</p>
         </div>
-        {(role === 'admin' || role === 'moderator') && (
+        {role === 'admin' && (
           <button
             onClick={() => setShowForm(v => !v)}
             className="flex items-center gap-2 px-4 py-2 bg-cyan-500 text-gray-950 rounded-xl font-medium hover:bg-cyan-400 transition-colors"
@@ -95,7 +95,7 @@ export function CommunityPage({ role, onNavigate }: CommunityPageProps) {
         <div className="text-center py-20 text-gray-500">
           <Users className="w-16 h-16 mx-auto mb-4 opacity-20" />
           <p className="text-lg">Nenhum canal criado ainda.</p>
-          {(role === 'admin' || role === 'moderator') && (
+          {role === 'admin' && (
             <p className="text-sm mt-2">Clique em "Novo Canal" para começar.</p>
           )}
         </div>
@@ -128,7 +128,7 @@ export function CommunityPage({ role, onNavigate }: CommunityPageProps) {
                 <ChevronRight className="w-5 h-5 text-gray-600 group-hover:text-cyan-400 transition-colors flex-shrink-0" />
               </button>
 
-              {(role === 'admin' || role === 'moderator') && (
+              {role === 'admin' && (
                 <button
                   onClick={() => deleteChannel(channel.id)}
                   className="absolute top-3 right-3 p-1.5 text-gray-600 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
