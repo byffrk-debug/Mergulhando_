@@ -225,21 +225,27 @@ function AuthPage() {
   const [ministry, setMinistry] = useState('');
   const [conversionTime, setConversionTime] = useState('');
 
-  // Helpers: fetch diretamente para auth — evita qualquer problema de header no cliente Supabase JS
+  // Helpers para auth — apikey vai na URL (query param), não em headers, para evitar restrição ISO-8859-1
   const sbUrl = (): string => (import.meta.env.VITE_SUPABASE_URL as string) || '';
-  const sbKey = (): string => (import.meta.env.VITE_SUPABASE_ANON_KEY as string) || '';
+  // Strip qualquer caractere fora do alfabeto JWT para garantir header ASCII-safe
+  const sbKey = (): string => {
+    const raw = (import.meta.env.VITE_SUPABASE_ANON_KEY as string) || '';
+    return raw.replace(/[^A-Za-z0-9\-_.]/g, '');
+  };
+  // Monta URL com apikey como query param (Kong gateway do Supabase aceita)
+  const authUrl = (path: string, extra = ''): string =>
+    `${sbUrl()}/auth/v1/${path}?apikey=${sbKey()}${extra}`;
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch(`${sbUrl()}/auth/v1/token?grant_type=password`, {
+      const res = await fetch(authUrl('token', '&grant_type=password'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'apikey': sbKey() },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
       const json = await res.json();
       if (!res.ok) { toast.error('E-mail ou senha inválidos.'); return; }
-      // Registrar sessão no cliente Supabase para que as demais queries funcionem
       await supabase.auth.setSession({ access_token: json.access_token, refresh_token: json.refresh_token });
     } catch { toast.error('Erro de conexão. Tente novamente.'); }
   };
@@ -248,10 +254,10 @@ function AuthPage() {
     e.preventDefault();
     if (!email || !password || !name) return;
     try {
-      // Step 1: criar usuário diretamente via API REST — sem passar pelo cliente JS
-      const res = await fetch(`${sbUrl()}/auth/v1/signup`, {
+      // Signup via REST — apikey na URL, body em JSON puro, zero header customizado
+      const res = await fetch(authUrl('signup'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'apikey': sbKey() },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
       const json = await res.json();
@@ -260,28 +266,24 @@ function AuthPage() {
         return;
       }
 
-      // Step 2: Se já veio com sessão (confirmação por email desativada), ativar no cliente
       const userId: string | undefined = json.id ?? json.user?.id;
       if (json.access_token) {
         await supabase.auth.setSession({ access_token: json.access_token, refresh_token: json.refresh_token });
       }
 
-      // Step 3: salvar perfil
       if (userId) {
-        const { error: profileError } = await supabase.from('user_profiles').insert({
+        await supabase.from('user_profiles').insert({
           user_id: userId, name, birth_date: birthDate, city, church,
           cell_group: hasCell === 'sim' ? cellGroup : '',
           ministry: hasMinistry === 'sim' ? ministry : '',
           conversion_time: conversionTime,
         });
-        if (profileError) console.warn('Perfil não salvo:', profileError.message);
       }
 
+      await supabase.auth.signOut();
       toast.success('Cadastro realizado! Faça login.');
       setAuthMode('login');
       setPassword('');
-      // Fazer logout para garantir que o login seja explícito
-      await supabase.auth.signOut();
     } catch (err: unknown) {
       toast.error('Erro ao cadastrar: ' + (err instanceof Error ? err.message : 'Erro de rede.'));
     }
