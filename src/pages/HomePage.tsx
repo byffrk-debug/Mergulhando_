@@ -1,133 +1,275 @@
-import React from 'react';
-import { Megaphone, AlertTriangle, Handshake, ExternalLink, BookOpen } from 'lucide-react';
+import React, { useRef } from 'react';
+import { Play, CheckCircle, Clock, BookOpen, ChevronRight, Megaphone, AlertTriangle, Handshake, ExternalLink } from 'lucide-react';
+import { motion } from 'motion/react';
+import { useTracks } from '../hooks/useTracks';
 import { useAnnouncements } from '../hooks/useAnnouncements';
 import { useHomeConfig } from '../hooks/useHomeConfig';
-import type { AppView } from '../types';
+import { getThumbnail } from '../utils/thumbnail';
+import type { Video, AppView } from '../types';
 
 interface HomePageProps {
+  videos: Video[];
+  userProgress: Record<string, boolean>;
+  videoPositions: Record<string, number>;
   onNavigate: (view: AppView) => void;
+  onPlayVideo: (video: Video) => void;
 }
 
 const ANNOUNCEMENT_ICONS: Record<string, React.ReactNode> = {
-  megaphone: <Megaphone className="w-5 h-5" />,
-  'alert-triangle': <AlertTriangle className="w-5 h-5" />,
-  handshake: <Handshake className="w-5 h-5" />,
+  megaphone: <Megaphone className="w-4 h-4" />,
+  'alert-triangle': <AlertTriangle className="w-4 h-4" />,
+  handshake: <Handshake className="w-4 h-4" />,
 };
 
-function getYouTubeId(url: string): string | null {
-  const match = url.match(/(?:v=|youtu\.be\/|embed\/)([^&?/]+)/);
-  return match ? match[1] : null;
+// ── Card de vídeo estilo Netflix ─────────────────────────────────────────────
+function VideoCard({ video, completed, onPlay }: { video: Video; completed: boolean; onPlay: () => void }) {
+  const thumb = getThumbnail(video);
+  return (
+    <button
+      onClick={onPlay}
+      className="flex-shrink-0 w-44 group text-left focus:outline-none"
+    >
+      <div className="relative w-44 h-28 rounded-xl overflow-hidden bg-gray-800 border border-gray-700/50 mb-2 shadow-lg group-hover:scale-105 group-hover:shadow-[0_0_20px_rgba(34,211,238,0.2)] transition-all duration-200">
+        {thumb && <img src={thumb} alt={video.title} className="w-full h-full object-cover" />}
+        <div className="absolute inset-0 bg-black/20 group-hover:bg-black/0 transition-colors" />
+        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="w-11 h-11 bg-white/90 rounded-full flex items-center justify-center shadow-xl">
+            <Play className="w-5 h-5 text-gray-900 fill-current ml-0.5" />
+          </div>
+        </div>
+        {completed && (
+          <div className="absolute top-2 right-2">
+            <CheckCircle className="w-4 h-4 text-cyan-400 drop-shadow-[0_0_4px_rgba(34,211,238,0.8)]" />
+          </div>
+        )}
+      </div>
+      <p className="text-xs text-gray-300 group-hover:text-white transition-colors line-clamp-2 leading-snug font-medium">{video.title}</p>
+    </button>
+  );
 }
 
-export function HomePage({ onNavigate }: HomePageProps) {
-  const { announcements } = useAnnouncements();
-  const { config, loading } = useHomeConfig();
-
-  const videoId = config.welcome_video_url ? getYouTubeId(config.welcome_video_url) : null;
+// ── Card de módulo estilo Netflix ─────────────────────────────────────────────
+function ModuleCard({ moduleName, videos, userProgress, onNavigate }: {
+  moduleName: string;
+  videos: Video[];
+  userProgress: Record<string, boolean>;
+  onNavigate: (view: AppView) => void;
+}) {
+  const thumb = videos[0] ? getThumbnail(videos[0]) : null;
+  const completed = videos.filter(v => userProgress[v.id]).length;
+  const percent = videos.length > 0 ? Math.round((completed / videos.length) * 100) : 0;
 
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-8">
-
-      {/* ── Banner estático ── */}
-      <section>
-        {loading ? (
-          <div className="w-full aspect-[21/8] min-h-[180px] bg-gray-900 rounded-2xl animate-pulse" />
-        ) : config.banner_image_url ? (
-          <div className="w-full aspect-[21/8] min-h-[180px] max-h-[400px] rounded-2xl overflow-hidden bg-gray-900 border border-gray-800">
-            <img
-              src={config.banner_image_url}
-              alt="Banner"
-              className="w-full h-full object-cover"
-            />
+    <button
+      onClick={() => onNavigate({ name: 'modulo', moduleName })}
+      className="flex-shrink-0 w-44 group text-left focus:outline-none"
+    >
+      <div className="relative w-44 h-28 rounded-xl overflow-hidden bg-gray-800 border border-gray-700/50 mb-2 shadow-lg group-hover:scale-105 group-hover:shadow-[0_0_20px_rgba(34,211,238,0.2)] transition-all duration-200">
+        {thumb && <img src={thumb} alt={moduleName} className="w-full h-full object-cover opacity-70" />}
+        <div className="absolute inset-0 bg-gradient-to-t from-gray-950 via-transparent to-transparent" />
+        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="w-11 h-11 bg-white/90 rounded-full flex items-center justify-center shadow-xl">
+            <Play className="w-5 h-5 text-gray-900 fill-current ml-0.5" />
           </div>
-        ) : (
-          /* Placeholder quando nenhuma imagem foi configurada */
-          <div className="w-full aspect-[21/8] min-h-[180px] max-h-[400px] rounded-2xl overflow-hidden bg-gradient-to-br from-gray-900 via-cyan-950/30 to-gray-900 border border-cyan-500/10 flex flex-col items-center justify-center gap-3">
-            <BookOpen className="w-14 h-14 text-cyan-500/30" />
-            <p className="text-gray-600 text-sm">Configure o banner na aba Admin → Início</p>
+        </div>
+        {/* Barra de progresso */}
+        {percent > 0 && (
+          <div className="absolute bottom-0 left-0 right-0 h-1 bg-gray-700">
+            <div className="h-full bg-cyan-400 transition-all" style={{ width: `${percent}%` }} />
           </div>
         )}
-      </section>
+      </div>
+      <p className="text-xs text-gray-300 group-hover:text-white transition-colors line-clamp-2 leading-snug font-medium">{moduleName}</p>
+      <p className="text-xs text-gray-600 mt-0.5">{completed}/{videos.length} aulas</p>
+    </button>
+  );
+}
 
-      {/* ── Vídeo de boas-vindas ── */}
-      <section>
-        <h2 className="text-lg font-semibold text-white mb-3">
-          {config.welcome_video_title || 'Bem-vindo ao Mergulhando na Palavra'}
-        </h2>
-        {videoId ? (
-          <div className="relative w-full aspect-video rounded-2xl overflow-hidden bg-gray-900 border border-gray-800 shadow-[0_0_40px_rgba(34,211,238,0.06)]">
-            <iframe
-              src={`https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1`}
-              title={config.welcome_video_title || 'Vídeo de boas-vindas'}
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
-              className="absolute inset-0 w-full h-full"
-            />
-          </div>
-        ) : (
-          <div className="w-full aspect-video rounded-2xl bg-gray-900 border border-dashed border-gray-700 flex flex-col items-center justify-center gap-2 text-gray-600">
-            <svg className="w-12 h-12 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <p className="text-sm">Configure o vídeo de boas-vindas na aba Admin → Início</p>
-          </div>
-        )}
-      </section>
+// ── Linha horizontal com scroll ──────────────────────────────────────────────
+function ScrollRow({ children }: { children: React.ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  return (
+    <div
+      ref={ref}
+      className="flex gap-3 overflow-x-auto pb-2 scrollbar-none"
+      style={{ scrollbarWidth: 'none' }}
+    >
+      {children}
+    </div>
+  );
+}
 
-      {/* ── Avisos ── */}
-      {announcements.length > 0 && (
-        <section>
-          <h2 className="text-lg font-semibold text-white mb-3">Avisos</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {announcements.map(ann => (
-              <div
-                key={ann.id}
-                className="flex items-start gap-3 p-4 bg-gray-900 border border-gray-800 rounded-xl"
-              >
-                <div className="w-9 h-9 bg-cyan-500/10 rounded-lg flex items-center justify-center text-cyan-400 flex-shrink-0">
-                  {ann.icon && ANNOUNCEMENT_ICONS[ann.icon]
-                    ? ANNOUNCEMENT_ICONS[ann.icon]
-                    : <Megaphone className="w-5 h-5" />}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-gray-300">{ann.content}</p>
+// ── Página principal ─────────────────────────────────────────────────────────
+export function HomePage({ videos, userProgress, videoPositions, onNavigate, onPlayVideo }: HomePageProps) {
+  const { tracks, trackModules } = useTracks();
+  const { announcements } = useAnnouncements();
+  const { config } = useHomeConfig();
+
+  const inProgress = videos.filter(v => videoPositions[v.id] && !userProgress[v.id]);
+  const allModules = Array.from(new Set(videos.map(v => v.module)));
+
+  return (
+    <div className="pb-10">
+
+      {/* ── Hero Banner (ocupa topo inteiro) ─── */}
+      {config.banner_image_url ? (
+        <div className="relative w-full" style={{ aspectRatio: '16/7', maxHeight: 480 }}>
+          <img
+            src={config.banner_image_url}
+            alt="Banner"
+            className="w-full h-full object-cover object-center"
+          />
+          {/* Gradiente embaixo para transição suave com o conteúdo */}
+          <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-gray-950 to-transparent pointer-events-none" />
+        </div>
+      ) : (
+        /* Placeholder enquanto não configurou */
+        <div
+          className="relative w-full flex flex-col items-center justify-center bg-gradient-to-br from-gray-900 via-cyan-950/20 to-gray-950 border-b border-gray-800"
+          style={{ aspectRatio: '16/7', maxHeight: 480 }}
+        >
+          <BookOpen className="w-16 h-16 text-cyan-500/20 mb-3" />
+          <p className="text-gray-600 text-sm">Configure o banner em Admin → Início</p>
+          <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-gray-950 to-transparent" />
+        </div>
+      )}
+
+      <div className="px-6 max-w-7xl mx-auto">
+
+        {/* ── Vídeo de boas-vindas (logo abaixo do banner) ── */}
+        {config.welcome_video_url && (() => {
+          const match = config.welcome_video_url.match(/(?:v=|youtu\.be\/|embed\/)([^&?/]+)/);
+          const vid = match?.[1];
+          return vid ? (
+            <section className="mt-6 mb-8">
+              <h2 className="text-base font-semibold text-white mb-3 flex items-center gap-2">
+                <Play className="w-4 h-4 text-cyan-400" />
+                {config.welcome_video_title || 'Bem-vindo'}
+              </h2>
+              <div className="relative w-full max-w-2xl aspect-video rounded-2xl overflow-hidden bg-gray-900 border border-gray-800">
+                <iframe
+                  src={`https://www.youtube.com/embed/${vid}?rel=0&modestbranding=1`}
+                  title={config.welcome_video_title || 'Boas-vindas'}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  className="absolute inset-0 w-full h-full"
+                />
+              </div>
+            </section>
+          ) : null;
+        })()}
+
+        {/* ── Avisos ── */}
+        {announcements.length > 0 && (
+          <section className="mb-8">
+            <div className="flex flex-wrap gap-3">
+              {announcements.map(ann => (
+                <div key={ann.id} className="flex items-center gap-2 px-4 py-2.5 bg-gray-900 border border-gray-800 rounded-xl text-sm text-gray-300">
+                  <span className="text-cyan-400">
+                    {ann.icon && ANNOUNCEMENT_ICONS[ann.icon] ? ANNOUNCEMENT_ICONS[ann.icon] : <Megaphone className="w-4 h-4" />}
+                  </span>
+                  <span>{ann.content}</span>
                   {ann.link_url && ann.link_label && (
-                    <a
-                      href={ann.link_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-xs text-cyan-400 hover:text-cyan-300 mt-1 transition-colors"
-                    >
+                    <a href={ann.link_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-cyan-400 hover:text-cyan-300 transition-colors ml-1">
                       {ann.link_label} <ExternalLink className="w-3 h-3" />
                     </a>
                   )}
                 </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
+              ))}
+            </div>
+          </section>
+        )}
 
-      {/* ── CTA para trilhas ── */}
-      <section>
-        <button
-          onClick={() => onNavigate({ name: 'trilha', trackId: '' })}
-          className="w-full p-5 bg-gradient-to-r from-cyan-500/10 to-pink-500/10 border border-cyan-500/20 rounded-2xl flex items-center gap-4 hover:border-cyan-500/40 transition-all group"
-        >
-          <div className="w-12 h-12 bg-cyan-500/15 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:bg-cyan-500/25 transition-colors">
-            <BookOpen className="w-6 h-6 text-cyan-400" />
-          </div>
-          <div className="text-left">
-            <p className="font-semibold text-white">Trilha de Estudos</p>
-            <p className="text-sm text-gray-400">Acesse os módulos, aulas e avaliações</p>
-          </div>
-          <svg className="w-5 h-5 text-gray-500 group-hover:text-cyan-400 transition-colors ml-auto flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
-        </button>
-      </section>
+        {/* ── Continue Assistindo ── */}
+        {inProgress.length > 0 && (
+          <section className="mb-8">
+            <h2 className="text-base font-semibold text-white mb-4 flex items-center gap-2">
+              <Clock className="w-4 h-4 text-pink-400" />
+              Continuar Assistindo
+            </h2>
+            <ScrollRow>
+              {inProgress.map(video => (
+                <VideoCard
+                  key={video.id}
+                  video={video}
+                  completed={!!userProgress[video.id]}
+                  onPlay={() => onPlayVideo(video)}
+                />
+              ))}
+            </ScrollRow>
+          </section>
+        )}
 
+        {/* ── Trilhas (cada trilha = uma linha Netflix) ── */}
+        {tracks.length > 0 ? (
+          tracks.map(track => {
+            const modules = trackModules
+              .filter(tm => tm.track_id === track.id)
+              .sort((a, b) => a.order_index - b.order_index);
+            if (modules.length === 0) return null;
+            return (
+              <section key={track.id} className="mb-8">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-base font-semibold text-white flex items-center gap-2">
+                    <BookOpen className="w-4 h-4 text-cyan-400" />
+                    {track.name}
+                  </h2>
+                  <button
+                    onClick={() => onNavigate({ name: 'trilha', trackId: track.id })}
+                    className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1 transition-colors"
+                  >
+                    Ver todos <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+                <ScrollRow>
+                  {modules.map(tm => (
+                    <ModuleCard
+                      key={tm.module_name}
+                      moduleName={tm.module_name}
+                      videos={videos.filter(v => v.module === tm.module_name)}
+                      userProgress={userProgress}
+                      onNavigate={onNavigate}
+                    />
+                  ))}
+                </ScrollRow>
+              </section>
+            );
+          })
+        ) : (
+          /* Sem trilhas configuradas — mostra módulos soltos */
+          allModules.length > 0 && (
+            <section className="mb-8">
+              <h2 className="text-base font-semibold text-white mb-4 flex items-center gap-2">
+                <BookOpen className="w-4 h-4 text-cyan-400" />
+                Trilha de Estudos
+              </h2>
+              <ScrollRow>
+                {allModules.map(mod => (
+                  <ModuleCard
+                    key={mod}
+                    moduleName={mod}
+                    videos={videos.filter(v => v.module === mod)}
+                    userProgress={userProgress}
+                    onNavigate={onNavigate}
+                  />
+                ))}
+              </ScrollRow>
+            </section>
+          )
+        )}
+
+        {/* Estado vazio */}
+        {videos.length === 0 && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="text-center py-20 text-gray-600"
+          >
+            <BookOpen className="w-14 h-14 mx-auto mb-4 opacity-20" />
+            <p>Nenhuma aula cadastrada ainda.</p>
+          </motion.div>
+        )}
+      </div>
     </div>
   );
 }

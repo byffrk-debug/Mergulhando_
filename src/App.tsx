@@ -503,7 +503,15 @@ export default function App() {
   const renderView = () => {
     switch (currentView.name) {
       case 'home':
-        return <HomePage onNavigate={setCurrentView} />;
+        return (
+          <HomePage
+            videos={videos}
+            userProgress={userProgress}
+            videoPositions={videoPositions}
+            onNavigate={setCurrentView}
+            onPlayVideo={openVideo}
+          />
+        );
       case 'trilha':
         return (
           <TrackPage
@@ -540,9 +548,9 @@ export default function App() {
       case 'admin':
         return (role === 'admin' || role === 'moderator')
           ? <AdminPage videos={videos} role={role} onVideosChange={fetchVideos} onNavigate={setCurrentView} />
-          : <HomePage onNavigate={setCurrentView} />;
+          : <HomePage videos={videos} userProgress={userProgress} videoPositions={videoPositions} onNavigate={setCurrentView} onPlayVideo={openVideo} />;
       default:
-        return <HomePage onNavigate={setCurrentView} />;
+        return <HomePage videos={videos} userProgress={userProgress} videoPositions={videoPositions} onNavigate={setCurrentView} onPlayVideo={openVideo} />;
     }
   };
 
