@@ -72,7 +72,7 @@ export function Sidebar({ currentView, onNavigate, role, open, onClose }: Sideba
               return (
                 <li key={item.label}>
                   <button
-                    onClick={() => handleNav(item.view.name === 'trilha' ? { name: 'home' } : item.view)}
+                    onClick={() => handleNav(item.view)}
                     className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all group ${
                       active
                         ? 'bg-cyan-500/15 text-cyan-400 border border-cyan-500/20'
