@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Plus, Trash2, BookOpen, Megaphone, Users, FileText, ChevronDown, ChevronUp, Home } from 'lucide-react';
+import { CoverUpload } from '../components/CoverUpload';
 import { useHomeConfig } from '../hooks/useHomeConfig';
 import { motion, AnimatePresence } from 'motion/react';
 import { useTracks } from '../hooks/useTracks';
@@ -64,10 +65,12 @@ export function AdminPage({ videos, role, onVideosChange, onNavigate }: AdminPag
   const [newModule, setNewModule] = useState('');
   const [newContent, setNewContent] = useState('');
   const [newDescription, setNewDescription] = useState('');
+  const [newThumbnail, setNewThumbnail] = useState('');
 
   // Track form
   const [trackName, setTrackName] = useState('');
   const [trackDesc, setTrackDesc] = useState('');
+  const [trackThumbnail, setTrackThumbnail] = useState('');
 
   // Announcement form
   const [annContent, setAnnContent] = useState('');
@@ -84,11 +87,12 @@ export function AdminPage({ videos, role, onVideosChange, onNavigate }: AdminPag
     const { data, error } = await supabase.from('videos').insert([{
       title: newTitle, url: newUrl, module: newModule,
       content: newContent || null, short_description: newDescription || null,
+      thumbnail_url: newThumbnail || null,
     }]).select();
     if (error) { toast.error('Erro: ' + error.message); return; }
     if (data) {
       toast.success('Aula adicionada!');
-      setNewTitle(''); setNewUrl(''); setNewContent(''); setNewDescription('');
+      setNewTitle(''); setNewUrl(''); setNewContent(''); setNewDescription(''); setNewThumbnail('');
       onVideosChange();
     }
   };
@@ -107,8 +111,8 @@ export function AdminPage({ videos, role, onVideosChange, onNavigate }: AdminPag
   const handleAddTrack = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!trackName.trim()) return;
-    await addTrack({ name: trackName, description: trackDesc, order_index: tracks.length });
-    setTrackName(''); setTrackDesc('');
+    await addTrack({ name: trackName, description: trackDesc, thumbnail_url: trackThumbnail || undefined, order_index: tracks.length });
+    setTrackName(''); setTrackDesc(''); setTrackThumbnail('');
     toast.success('Trilha criada!');
   };
 
@@ -216,6 +220,12 @@ export function AdminPage({ videos, role, onVideosChange, onNavigate }: AdminPag
               className="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-white outline-none focus:border-cyan-500 text-sm min-h-[80px] resize-y font-mono"
               placeholder="Conteúdo em Markdown..." />
           </div>
+          <CoverUpload
+            value={newThumbnail}
+            onChange={setNewThumbnail}
+            folder="videos"
+            label="Capa da Aula (9:16 — formato retrato)"
+          />
           <button type="submit" className="flex items-center gap-2 px-5 py-2.5 bg-cyan-500 text-gray-950 font-medium rounded-xl hover:bg-cyan-400 transition-colors">
             <Plus className="w-4 h-4" /> Adicionar Aula
           </button>
@@ -255,13 +265,21 @@ export function AdminPage({ videos, role, onVideosChange, onNavigate }: AdminPag
 
       {/* Tracks */}
       <Section title="Trilhas de Aprendizado" icon={BookOpen}>
-        <form onSubmit={handleAddTrack} className="flex gap-3 pt-4 mb-4">
-          <input value={trackName} onChange={e => setTrackName(e.target.value)} required placeholder="Nome da trilha"
-            className="flex-1 bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-white outline-none focus:border-cyan-500 text-sm" />
-          <input value={trackDesc} onChange={e => setTrackDesc(e.target.value)} placeholder="Descrição (opcional)"
-            className="flex-1 bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-white outline-none focus:border-cyan-500 text-sm" />
-          <button type="submit" className="px-4 py-2.5 bg-cyan-500 text-gray-950 rounded-xl hover:bg-cyan-400 transition-colors">
-            <Plus className="w-4 h-4" />
+        <form onSubmit={handleAddTrack} className="space-y-3 pt-4 mb-4">
+          <div className="flex gap-3">
+            <input value={trackName} onChange={e => setTrackName(e.target.value)} required placeholder="Nome da trilha"
+              className="flex-1 bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-white outline-none focus:border-cyan-500 text-sm" />
+            <input value={trackDesc} onChange={e => setTrackDesc(e.target.value)} placeholder="Descrição (opcional)"
+              className="flex-1 bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-white outline-none focus:border-cyan-500 text-sm" />
+          </div>
+          <CoverUpload
+            value={trackThumbnail}
+            onChange={setTrackThumbnail}
+            folder="tracks"
+            label="Capa da Trilha (9:16 — formato retrato)"
+          />
+          <button type="submit" className="flex items-center gap-2 px-4 py-2.5 bg-cyan-500 text-gray-950 rounded-xl hover:bg-cyan-400 transition-colors text-sm font-medium">
+            <Plus className="w-4 h-4" /> Criar Trilha
           </button>
         </form>
 

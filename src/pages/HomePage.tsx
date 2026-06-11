@@ -48,39 +48,55 @@ function VideoCard({ video, completed, onPlay }: { video: Video; completed: bool
   );
 }
 
-// ── Card de módulo estilo Netflix ─────────────────────────────────────────────
+// ── Card de módulo estilo retrato 9:16 ───────────────────────────────────────
 function ModuleCard({ moduleName, videos, userProgress, onNavigate }: {
   moduleName: string;
   videos: Video[];
   userProgress: Record<string, boolean>;
   onNavigate: (view: AppView) => void;
 }) {
-  const thumb = videos[0] ? getThumbnail(videos[0]) : null;
+  // Usa capa personalizada (thumbnail_url) do primeiro vídeo ou fallback YouTube
+  const coverVideo = videos.find(v => v.thumbnail_url) ?? videos[0];
+  const thumb = coverVideo ? (coverVideo.thumbnail_url || getThumbnail(coverVideo)) : null;
   const completed = videos.filter(v => userProgress[v.id]).length;
   const percent = videos.length > 0 ? Math.round((completed / videos.length) * 100) : 0;
 
   return (
     <button
       onClick={() => onNavigate({ name: 'modulo', moduleName })}
-      className="flex-shrink-0 w-44 group text-left focus:outline-none"
+      className="flex-shrink-0 w-32 group text-left focus:outline-none"
     >
-      <div className="relative w-44 h-28 rounded-xl overflow-hidden bg-gray-800 border border-gray-700/50 mb-2 shadow-lg group-hover:scale-105 group-hover:shadow-[0_0_20px_rgba(34,211,238,0.2)] transition-all duration-200">
-        {thumb && <img src={thumb} alt={moduleName} className="w-full h-full object-cover opacity-70" />}
-        <div className="absolute inset-0 bg-gradient-to-t from-gray-950 via-transparent to-transparent" />
+      {/* Área 9:16 */}
+      <div
+        className="relative w-32 rounded-xl overflow-hidden bg-gray-800 border border-gray-700/50 mb-2 shadow-lg group-hover:scale-105 group-hover:shadow-[0_0_20px_rgba(34,211,238,0.2)] transition-all duration-200"
+        style={{ aspectRatio: '9/16' }}
+      >
+        {thumb ? (
+          <img src={thumb} alt={moduleName} className="absolute inset-0 w-full h-full object-cover" />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-cyan-900/40 to-gray-900">
+            <BookOpen className="w-8 h-8 text-cyan-500/40" />
+          </div>
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-gray-950/90 via-gray-950/20 to-transparent" />
+        {/* Título sobreposto na parte inferior */}
+        <div className="absolute bottom-0 left-0 right-0 p-2">
+          <p className="text-[10px] text-white font-semibold leading-tight line-clamp-2">{moduleName}</p>
+          <p className="text-[9px] text-gray-400 mt-0.5">{completed}/{videos.length} aulas</p>
+        </div>
+        {/* Play hover */}
         <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-          <div className="w-11 h-11 bg-white/90 rounded-full flex items-center justify-center shadow-xl">
-            <Play className="w-5 h-5 text-gray-900 fill-current ml-0.5" />
+          <div className="w-10 h-10 bg-white/90 rounded-full flex items-center justify-center shadow-xl">
+            <Play className="w-4 h-4 text-gray-900 fill-current ml-0.5" />
           </div>
         </div>
         {/* Barra de progresso */}
         {percent > 0 && (
-          <div className="absolute bottom-0 left-0 right-0 h-1 bg-gray-700">
+          <div className="absolute top-0 left-0 right-0 h-1 bg-gray-700/60">
             <div className="h-full bg-cyan-400 transition-all" style={{ width: `${percent}%` }} />
           </div>
         )}
       </div>
-      <p className="text-xs text-gray-300 group-hover:text-white transition-colors line-clamp-2 leading-snug font-medium">{moduleName}</p>
-      <p className="text-xs text-gray-600 mt-0.5">{completed}/{videos.length} aulas</p>
     </button>
   );
 }
