@@ -217,62 +217,69 @@ export function HomePage({ videos, userProgress, videoPositions, onNavigate, onP
         )}
 
         {/* ── Trilhas (cada trilha = uma linha Netflix) ── */}
-        {tracks.length > 0 ? (
-          tracks.map(track => {
-            const modules = trackModules
-              .filter(tm => tm.track_id === track.id)
-              .sort((a, b) => a.order_index - b.order_index);
-            if (modules.length === 0) return null;
-            return (
-              <section key={track.id} className="mb-8">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-base font-semibold text-white flex items-center gap-2">
-                    <BookOpen className="w-4 h-4 text-cyan-400" />
-                    {track.name}
-                  </h2>
-                  <button
-                    onClick={() => onNavigate({ name: 'trilha', trackId: track.id })}
-                    className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1 transition-colors"
-                  >
-                    Ver todos <ChevronRight className="w-3.5 h-3.5" />
-                  </button>
-                </div>
+        {(() => {
+          // Monta a lista de seções por trilha que têm módulos associados
+          const trackSections = tracks
+            .map(track => {
+              const modules = trackModules
+                .filter(tm => tm.track_id === track.id)
+                .sort((a, b) => a.order_index - b.order_index);
+              return { track, modules };
+            })
+            .filter(({ modules }) => modules.length > 0);
+
+          // Se nenhuma trilha tem módulos associados → mostra todos os módulos diretamente
+          if (tracks.length === 0 || trackSections.length === 0) {
+            return allModules.length > 0 ? (
+              <section className="mb-8">
+                <h2 className="text-base font-semibold text-white mb-4 flex items-center gap-2">
+                  <BookOpen className="w-4 h-4 text-cyan-400" />
+                  Trilha de Estudos
+                </h2>
                 <ScrollRow>
-                  {modules.map(tm => (
+                  {allModules.map(mod => (
                     <ModuleCard
-                      key={tm.module_name}
-                      moduleName={tm.module_name}
-                      videos={videos.filter(v => v.module === tm.module_name)}
+                      key={mod}
+                      moduleName={mod}
+                      videos={videos.filter(v => v.module === mod)}
                       userProgress={userProgress}
                       onNavigate={onNavigate}
                     />
                   ))}
                 </ScrollRow>
               </section>
-            );
-          })
-        ) : (
-          /* Sem trilhas configuradas — mostra módulos soltos */
-          allModules.length > 0 && (
-            <section className="mb-8">
-              <h2 className="text-base font-semibold text-white mb-4 flex items-center gap-2">
-                <BookOpen className="w-4 h-4 text-cyan-400" />
-                Trilha de Estudos
-              </h2>
+            ) : null;
+          }
+
+          // Há trilhas com módulos → uma seção por trilha
+          return trackSections.map(({ track, modules }) => (
+            <section key={track.id} className="mb-8">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-base font-semibold text-white flex items-center gap-2">
+                  <BookOpen className="w-4 h-4 text-cyan-400" />
+                  {track.name}
+                </h2>
+                <button
+                  onClick={() => onNavigate({ name: 'trilha', trackId: track.id })}
+                  className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1 transition-colors"
+                >
+                  Ver todos <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
               <ScrollRow>
-                {allModules.map(mod => (
+                {modules.map(tm => (
                   <ModuleCard
-                    key={mod}
-                    moduleName={mod}
-                    videos={videos.filter(v => v.module === mod)}
+                    key={tm.module_name}
+                    moduleName={tm.module_name}
+                    videos={videos.filter(v => v.module === tm.module_name)}
                     userProgress={userProgress}
                     onNavigate={onNavigate}
                   />
                 ))}
               </ScrollRow>
             </section>
-          )
-        )}
+          ));
+        })()}
 
         {/* Estado vazio */}
         {videos.length === 0 && (

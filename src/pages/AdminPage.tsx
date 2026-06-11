@@ -111,9 +111,18 @@ export function AdminPage({ videos, role, onVideosChange, onNavigate }: AdminPag
   const handleAddTrack = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!trackName.trim()) return;
-    await addTrack({ name: trackName, description: trackDesc, thumbnail_url: trackThumbnail || undefined, order_index: tracks.length });
-    setTrackName(''); setTrackDesc(''); setTrackThumbnail('');
-    toast.success('Trilha criada!');
+    const result = await addTrack({
+      name: trackName,
+      description: trackDesc || undefined,
+      thumbnail_url: trackThumbnail || undefined,
+      order_index: tracks.length,
+    });
+    if (result) {
+      setTrackName(''); setTrackDesc(''); setTrackThumbnail('');
+      toast.success('Trilha criada!');
+    } else {
+      toast.error('Erro ao criar trilha. Verifique as permissões no Supabase.');
+    }
   };
 
   const handleAddAnnouncement = async (e: React.FormEvent) => {

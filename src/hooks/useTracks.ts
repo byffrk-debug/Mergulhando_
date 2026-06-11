@@ -20,32 +20,43 @@ export function useTracks() {
   useEffect(() => { fetchTracks(); }, []);
 
   const addTrack = async (track: Omit<Track, 'id'>) => {
-    const { data } = await supabase.from('tracks').insert([track]).select().single();
-    if (data) setTracks(prev => [...prev, data].sort((a, b) => a.order_index - b.order_index));
+    // Remove campos undefined para não causar erros de schema no Supabase
+    const payload: Record<string, unknown> = { name: track.name, order_index: track.order_index };
+    if (track.description) payload.description = track.description;
+    if (track.thumbnail_url) payload.thumbnail_url = track.thumbnail_url;
+
+    const { data, error } = await supabase.from('tracks').insert([payload]).select().single();
+    if (error) { console.error('addTrack error:', error); return null; }
+    if (data) {
+      setTracks(prev => [...prev, data].sort((a, b) => a.order_index - b.order_index));
+    }
     return data;
   };
 
   const deleteTrack = async (id: string) => {
-    await supabase.from('tracks').delete().eq('id', id);
+    const { error } = await supabase.from('tracks').delete().eq('id', id);
+    if (error) { console.error('deleteTrack error:', error); return; }
     setTracks(prev => prev.filter(t => t.id !== id));
     setTrackModules(prev => prev.filter(tm => tm.track_id !== id));
   };
 
   const addModuleToTrack = async (trackId: string, moduleName: string, orderIndex: number) => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('track_modules')
       .insert([{ track_id: trackId, module_name: moduleName, order_index: orderIndex }])
       .select()
       .single();
+    if (error) { console.error('addModuleToTrack error:', error); return; }
     if (data) setTrackModules(prev => [...prev, data]);
   };
 
   const removeModuleFromTrack = async (trackId: string, moduleName: string) => {
-    await supabase
+    const { error } = await supabase
       .from('track_modules')
       .delete()
       .eq('track_id', trackId)
       .eq('module_name', moduleName);
+    if (error) { console.error('removeModuleFromTrack error:', error); return; }
     setTrackModules(prev =>
       prev.filter(tm => !(tm.track_id === trackId && tm.module_name === moduleName))
     );
