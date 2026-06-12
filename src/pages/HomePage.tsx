@@ -1,7 +1,6 @@
-import React, { useRef } from 'react';
-import { Play, CheckCircle, Clock, BookOpen, ChevronRight, Megaphone, AlertTriangle, Handshake, ExternalLink } from 'lucide-react';
+import React from 'react';
+import { Play, Clock, BookOpen, Megaphone, AlertTriangle, Handshake, ExternalLink } from 'lucide-react';
 import { motion } from 'motion/react';
-import { useTracks } from '../hooks/useTracks';
 import { useAnnouncements } from '../hooks/useAnnouncements';
 import { useHomeConfig } from '../hooks/useHomeConfig';
 import { getThumbnail } from '../utils/thumbnail';
@@ -22,108 +21,53 @@ const ANNOUNCEMENT_ICONS: Record<string, React.ReactNode> = {
   handshake: <Handshake className="w-4 h-4" />,
 };
 
-// ── Card de vídeo estilo Netflix ─────────────────────────────────────────────
-function VideoCard({ video, completed, onPlay }: { video: Video; completed: boolean; onPlay: () => void }) {
+// ── Card grande "Continuar de onde parou" ────────────────────────────────────
+function ContinueCard({ video, onPlay }: { video: Video; onPlay: () => void }) {
   const thumb = getThumbnail(video);
   return (
     <button
       onClick={onPlay}
-      className="flex-shrink-0 w-44 group text-left focus:outline-none"
+      className="group w-full flex flex-col sm:flex-row items-stretch text-left rounded-2xl overflow-hidden bg-gray-900 border border-gray-800 hover:border-cyan-500/40 hover:shadow-[0_0_30px_rgba(34,211,238,0.12)] transition-all duration-200 focus:outline-none"
     >
-      <div className="relative w-44 h-28 rounded-xl overflow-hidden bg-gray-800 border border-gray-700/50 mb-2 shadow-lg group-hover:scale-105 group-hover:shadow-[0_0_20px_rgba(34,211,238,0.2)] transition-all duration-200">
-        {thumb && <img src={thumb} alt={video.title} className="w-full h-full object-cover" />}
+      {/* Thumb 16:9 (do YouTube) */}
+      <div className="relative w-full sm:w-80 flex-shrink-0 aspect-video bg-gray-800 overflow-hidden">
+        {thumb && (
+          <img src={normalizeImageUrl(thumb)} alt={video.title} className="absolute inset-0 w-full h-full object-cover" />
+        )}
         <div className="absolute inset-0 bg-black/20 group-hover:bg-black/0 transition-colors" />
-        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-          <div className="w-11 h-11 bg-white/90 rounded-full flex items-center justify-center shadow-xl">
-            <Play className="w-5 h-5 text-gray-900 fill-current ml-0.5" />
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="w-14 h-14 bg-white/90 rounded-full flex items-center justify-center shadow-xl group-hover:scale-110 transition-transform">
+            <Play className="w-6 h-6 text-gray-900 fill-current ml-0.5" />
           </div>
         </div>
-        {completed && (
-          <div className="absolute top-2 right-2">
-            <CheckCircle className="w-4 h-4 text-cyan-400 drop-shadow-[0_0_4px_rgba(34,211,238,0.8)]" />
-          </div>
-        )}
       </div>
-      <p className="text-xs text-gray-300 group-hover:text-white transition-colors line-clamp-2 leading-snug font-medium">{video.title}</p>
-    </button>
-  );
-}
 
-// ── Card de módulo estilo retrato 9:16 ───────────────────────────────────────
-function ModuleCard({ moduleName, videos, userProgress, onNavigate }: {
-  moduleName: string;
-  videos: Video[];
-  userProgress: Record<string, boolean>;
-  onNavigate: (view: AppView) => void;
-}) {
-  // Usa capa personalizada (thumbnail_url) do primeiro vídeo ou fallback YouTube
-  const coverVideo = videos.find(v => v.thumbnail_url) ?? videos[0];
-  const thumb = coverVideo ? (coverVideo.thumbnail_url || getThumbnail(coverVideo)) : null;
-  const completed = videos.filter(v => userProgress[v.id]).length;
-  const percent = videos.length > 0 ? Math.round((completed / videos.length) * 100) : 0;
-
-  return (
-    <button
-      onClick={() => onNavigate({ name: 'modulo', moduleName })}
-      className="flex-shrink-0 w-32 group text-left focus:outline-none"
-    >
-      {/* Área 9:16 */}
-      <div
-        className="relative w-32 rounded-xl overflow-hidden bg-gray-800 border border-gray-700/50 mb-2 shadow-lg group-hover:scale-105 group-hover:shadow-[0_0_20px_rgba(34,211,238,0.2)] transition-all duration-200"
-        style={{ aspectRatio: '9/16' }}
-      >
-        {thumb ? (
-          <img src={normalizeImageUrl(thumb)} alt={moduleName} className="absolute inset-0 w-full h-full object-cover" />
-        ) : (
-          <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-cyan-900/40 to-gray-900">
-            <BookOpen className="w-8 h-8 text-cyan-500/40" />
-          </div>
+      {/* Info */}
+      <div className="flex-1 p-5 flex flex-col justify-center">
+        <span className="text-xs font-medium text-cyan-400 mb-1">{video.module}</span>
+        <h3 className="text-lg font-bold text-white leading-snug line-clamp-2 group-hover:text-cyan-300 transition-colors">
+          {video.title}
+        </h3>
+        {video.short_description && (
+          <p className="text-sm text-gray-400 mt-2 line-clamp-2">{video.short_description}</p>
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-gray-950/90 via-gray-950/20 to-transparent" />
-        {/* Título sobreposto na parte inferior */}
-        <div className="absolute bottom-0 left-0 right-0 p-2">
-          <p className="text-[10px] text-white font-semibold leading-tight line-clamp-2">{moduleName}</p>
-          <p className="text-[9px] text-gray-400 mt-0.5">{completed}/{videos.length} aulas</p>
-        </div>
-        {/* Play hover */}
-        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-          <div className="w-10 h-10 bg-white/90 rounded-full flex items-center justify-center shadow-xl">
-            <Play className="w-4 h-4 text-gray-900 fill-current ml-0.5" />
-          </div>
-        </div>
-        {/* Barra de progresso */}
-        {percent > 0 && (
-          <div className="absolute top-0 left-0 right-0 h-1 bg-gray-700/60">
-            <div className="h-full bg-cyan-400 transition-all" style={{ width: `${percent}%` }} />
-          </div>
-        )}
+        <span className="inline-flex items-center gap-2 mt-4 text-sm font-semibold text-cyan-400">
+          <Play className="w-4 h-4 fill-current" /> Continuar assistindo
+        </span>
       </div>
     </button>
-  );
-}
-
-// ── Linha horizontal com scroll ──────────────────────────────────────────────
-function ScrollRow({ children }: { children: React.ReactNode }) {
-  const ref = useRef<HTMLDivElement>(null);
-  return (
-    <div
-      ref={ref}
-      className="flex gap-3 overflow-x-auto pb-2 scrollbar-none"
-      style={{ scrollbarWidth: 'none' }}
-    >
-      {children}
-    </div>
   );
 }
 
 // ── Página principal ─────────────────────────────────────────────────────────
 export function HomePage({ videos, userProgress, videoPositions, onNavigate, onPlayVideo }: HomePageProps) {
-  const { tracks, trackModules } = useTracks();
   const { announcements } = useAnnouncements();
   const { config } = useHomeConfig();
 
+  // Vídeos em andamento (têm posição salva e ainda não foram concluídos)
   const inProgress = videos.filter(v => videoPositions[v.id] && !userProgress[v.id]);
-  const allModules = Array.from(new Set(videos.map(v => v.module)));
+  // "Continuar" = a última aula em estudo (último item em andamento)
+  const continueVideo = inProgress.length > 0 ? inProgress[inProgress.length - 1] : null;
 
   return (
     <div className="pb-10">
@@ -210,93 +154,22 @@ export function HomePage({ videos, userProgress, videoPositions, onNavigate, onP
           </section>
         )}
 
-        {/* ── Continue Assistindo ── */}
-        {inProgress.length > 0 && (
-          <section className="mb-8">
-            <h2 className="text-base font-semibold text-white mb-4 flex items-center gap-2">
-              <Clock className="w-4 h-4 text-pink-400" />
-              Continuar Assistindo
+        {/* ── Continuar (última aula em estudo) ── */}
+        {continueVideo && (
+          <section className="mb-10">
+            <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+              <Clock className="w-5 h-5 text-pink-400" />
+              Continuar de onde parou
             </h2>
-            <ScrollRow>
-              {inProgress.map(video => (
-                <VideoCard
-                  key={video.id}
-                  video={video}
-                  completed={!!userProgress[video.id]}
-                  onPlay={() => onPlayVideo(video)}
-                />
-              ))}
-            </ScrollRow>
+            <ContinueCard
+              video={continueVideo}
+              onPlay={() => onPlayVideo(continueVideo)}
+            />
           </section>
         )}
 
-        {/* ── Trilhas (cada trilha = uma linha Netflix) ── */}
-        {(() => {
-          // Monta a lista de seções por trilha que têm módulos associados
-          const trackSections = tracks
-            .map(track => {
-              const modules = trackModules
-                .filter(tm => tm.track_id === track.id)
-                .sort((a, b) => a.order_index - b.order_index);
-              return { track, modules };
-            })
-            .filter(({ modules }) => modules.length > 0);
-
-          // Se nenhuma trilha tem módulos associados → mostra todos os módulos diretamente
-          if (tracks.length === 0 || trackSections.length === 0) {
-            return allModules.length > 0 ? (
-              <section className="mb-8">
-                <h2 className="text-base font-semibold text-white mb-4 flex items-center gap-2">
-                  <BookOpen className="w-4 h-4 text-cyan-400" />
-                  Trilha de Estudos
-                </h2>
-                <ScrollRow>
-                  {allModules.map(mod => (
-                    <ModuleCard
-                      key={mod}
-                      moduleName={mod}
-                      videos={videos.filter(v => v.module === mod)}
-                      userProgress={userProgress}
-                      onNavigate={onNavigate}
-                    />
-                  ))}
-                </ScrollRow>
-              </section>
-            ) : null;
-          }
-
-          // Há trilhas com módulos → uma seção por trilha
-          return trackSections.map(({ track, modules }) => (
-            <section key={track.id} className="mb-8">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-base font-semibold text-white flex items-center gap-2">
-                  <BookOpen className="w-4 h-4 text-cyan-400" />
-                  {track.name}
-                </h2>
-                <button
-                  onClick={() => onNavigate({ name: 'trilha', trackId: track.id })}
-                  className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1 transition-colors"
-                >
-                  Ver todos <ChevronRight className="w-3.5 h-3.5" />
-                </button>
-              </div>
-              <ScrollRow>
-                {modules.map(tm => (
-                  <ModuleCard
-                    key={tm.module_name}
-                    moduleName={tm.module_name}
-                    videos={videos.filter(v => v.module === tm.module_name)}
-                    userProgress={userProgress}
-                    onNavigate={onNavigate}
-                  />
-                ))}
-              </ScrollRow>
-            </section>
-          ));
-        })()}
-
-        {/* Estado vazio */}
-        {videos.length === 0 && (
+        {/* Estado vazio / sem progresso */}
+        {videos.length === 0 ? (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -304,6 +177,21 @@ export function HomePage({ videos, userProgress, videoPositions, onNavigate, onP
           >
             <BookOpen className="w-14 h-14 mx-auto mb-4 opacity-20" />
             <p>Nenhuma aula cadastrada ainda.</p>
+          </motion.div>
+        ) : !continueVideo && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="text-center py-16 text-gray-500"
+          >
+            <BookOpen className="w-12 h-12 mx-auto mb-3 opacity-30" />
+            <p className="mb-4">Você ainda não começou nenhuma aula.</p>
+            <button
+              onClick={() => onNavigate({ name: 'trilha', trackId: '' })}
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-cyan-500 text-gray-950 font-medium rounded-xl hover:bg-cyan-400 transition-colors"
+            >
+              <BookOpen className="w-4 h-4" /> Ir para Trilha de Estudos
+            </button>
           </motion.div>
         )}
       </div>

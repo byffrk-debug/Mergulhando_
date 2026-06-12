@@ -49,7 +49,7 @@ function Section({ title, icon: Icon, children }: { title: string; icon: React.E
 }
 
 export function AdminPage({ videos, role, onVideosChange, onNavigate }: AdminPageProps) {
-  const { tracks, addTrack, deleteTrack, addModuleToTrack, removeModuleFromTrack, getTrackModules } = useTracks();
+  const { tracks, addTrack, updateTrack, deleteTrack, addModuleToTrack, removeModuleFromTrack, getTrackModules } = useTracks();
   const { announcements, addAnnouncement, deleteAnnouncement } = useAnnouncements();
   const { config: homeConfig, updateConfig: updateHomeConfig } = useHomeConfig();
 
@@ -312,6 +312,18 @@ export function AdminPage({ videos, role, onVideosChange, onNavigate }: AdminPag
                     </span>
                   ))}
                 </div>
+                {/* Capa da trilha (qualquer imagem 9:16) */}
+                <div className="mb-3">
+                  <TrackCoverEditor
+                    initial={track.thumbnail_url ?? ''}
+                    onSave={async (url) => {
+                      const ok = await updateTrack(track.id, { thumbnail_url: url || undefined });
+                      if (ok) toast.success('Capa da trilha atualizada!');
+                      else toast.error('Erro ao salvar capa.');
+                    }}
+                  />
+                </div>
+
                 {/* Add module */}
                 <select
                   onChange={e => { if (e.target.value) { addModuleToTrack(track.id, e.target.value, tms.length); e.target.value = ''; }}}
@@ -371,6 +383,39 @@ export function AdminPage({ videos, role, onVideosChange, onNavigate }: AdminPag
             <PromoteUser />
           </div>
         </Section>
+      )}
+    </div>
+  );
+}
+
+function TrackCoverEditor({ initial, onSave }: { initial: string; onSave: (url: string) => Promise<void> }) {
+  const [value, setValue] = useState(initial);
+  const [saving, setSaving] = useState(false);
+  const dirty = value !== initial;
+
+  const handleSave = async () => {
+    setSaving(true);
+    await onSave(value);
+    setSaving(false);
+  };
+
+  return (
+    <div className="space-y-2">
+      <CoverUpload
+        value={value}
+        onChange={setValue}
+        folder="tracks"
+        label="Capa desta Trilha (9:16 — qualquer imagem)"
+      />
+      {dirty && (
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={saving}
+          className="px-4 py-1.5 bg-cyan-500 text-gray-950 rounded-lg hover:bg-cyan-400 transition-colors text-xs font-medium disabled:opacity-50"
+        >
+          {saving ? 'Salvando...' : 'Salvar capa'}
+        </button>
       )}
     </div>
   );

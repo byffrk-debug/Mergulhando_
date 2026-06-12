@@ -33,6 +33,15 @@ export function useTracks() {
     return data;
   };
 
+  const updateTrack = async (id: string, patch: Partial<Omit<Track, 'id'>>) => {
+    const { data, error } = await supabase.from('tracks').update(patch).eq('id', id).select().single();
+    if (error) { console.error('updateTrack error:', error); return null; }
+    if (data) {
+      setTracks(prev => prev.map(t => (t.id === id ? data : t)).sort((a, b) => a.order_index - b.order_index));
+    }
+    return data;
+  };
+
   const deleteTrack = async (id: string) => {
     const { error } = await supabase.from('tracks').delete().eq('id', id);
     if (error) { console.error('deleteTrack error:', error); return; }
@@ -67,5 +76,5 @@ export function useTracks() {
       .filter(tm => tm.track_id === trackId)
       .sort((a, b) => a.order_index - b.order_index);
 
-  return { tracks, trackModules, loading, addTrack, deleteTrack, addModuleToTrack, removeModuleFromTrack, getTrackModules, refetch: fetchTracks };
+  return { tracks, trackModules, loading, addTrack, updateTrack, deleteTrack, addModuleToTrack, removeModuleFromTrack, getTrackModules, refetch: fetchTracks };
 }
