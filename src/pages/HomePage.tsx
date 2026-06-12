@@ -74,16 +74,16 @@ export function HomePage({ videos, userProgress, videoPositions, onNavigate, onP
 
       {/* ── Hero Banner ─── */}
       {config.banner_image_url ? (
-        <div className="relative w-full h-48 sm:h-56 overflow-hidden">
+        <div className="relative w-full h-32 sm:h-40 overflow-hidden">
           <img
             src={normalizeImageUrl(config.banner_image_url)}
             alt="Banner"
             className="absolute inset-0 w-full h-full object-cover object-center"
           />
-          <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-gray-950 to-transparent pointer-events-none" />
+          <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-gray-950 to-transparent pointer-events-none" />
         </div>
       ) : (
-        <div className="relative w-full h-48 sm:h-56 overflow-hidden flex flex-col items-center justify-center bg-gradient-to-br from-gray-900 via-cyan-950/20 to-gray-950 border-b border-gray-800"
+        <div className="relative w-full h-32 sm:h-40 overflow-hidden flex flex-col items-center justify-center bg-gradient-to-br from-gray-900 via-cyan-950/20 to-gray-950 border-b border-gray-800"
         >
           <BookOpen className="w-16 h-16 text-cyan-500/20 mb-3" />
           <p className="text-gray-600 text-sm">Configure o banner em Admin → Início</p>
