@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { Upload, X, Image } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { normalizeImageUrl } from '../utils/driveImage';
 
 interface CoverUploadProps {
   value: string;
@@ -43,7 +44,7 @@ export function CoverUpload({ value, onChange, folder = 'misc', label = 'Capa 9:
           style={{ aspectRatio: '9/16' }}
         >
           {value ? (
-            <img src={value} alt="Capa" className="absolute inset-0 w-full h-full object-cover" />
+            <img src={normalizeImageUrl(value)} alt="Capa" className="absolute inset-0 w-full h-full object-cover" />
           ) : (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 text-gray-600 group-hover:text-cyan-500 transition-colors">
               {uploading ? (

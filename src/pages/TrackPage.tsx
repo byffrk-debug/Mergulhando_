@@ -1,8 +1,9 @@
 import React from 'react';
-import { BookOpen, Lock, ChevronLeft, ChevronRight, Play } from 'lucide-react';
+import { BookOpen, Lock, ChevronLeft, ChevronRight, Play, Layers } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useTracks } from '../hooks/useTracks';
 import { getThumbnail } from '../utils/thumbnail';
+import { normalizeImageUrl } from '../utils/driveImage';
 import type { Video, AppView } from '../types';
 
 interface TrackPageProps {
@@ -67,7 +68,7 @@ export function TrackPage({ trackId, videos, userProgress, onNavigate }: TrackPa
                 style={{ aspectRatio: '9/16' }}
               >
                 {thumb ? (
-                  <img src={thumb} alt={moduleName} className={`absolute inset-0 w-full h-full object-cover ${isLocked ? 'grayscale' : ''}`} />
+                  <img src={normalizeImageUrl(thumb)} alt={moduleName} className={`absolute inset-0 w-full h-full object-cover ${isLocked ? 'grayscale' : ''}`} />
                 ) : (
                   <div className="absolute inset-0 bg-gradient-to-br from-cyan-900/30 to-gray-900 flex items-center justify-center">
                     <BookOpen className="w-10 h-10 text-cyan-500/30" />
@@ -124,47 +125,92 @@ export function TrackPage({ trackId, videos, userProgress, onNavigate }: TrackPa
     );
   }
 
-  // ── Vista geral (sem trackId) ───────────────────────────────────────────────
+  // ── Vista geral (sem trackId) → trilhas como CARDS ─────────────────────────
   if (isOverview) {
-    // Se existem trilhas configuradas → mostra cada trilha com seus módulos
-    // Se não → mostra todos os módulos diretamente
     return (
-      <div className="p-6 max-w-5xl mx-auto">
-        <h1 className="text-2xl font-bold text-white mb-8 flex items-center gap-3">
+      <div className="p-6 max-w-6xl mx-auto">
+        <h1 className="text-2xl font-bold text-white mb-2 flex items-center gap-3">
           <BookOpen className="w-7 h-7 text-cyan-400" />
           Trilha de Estudos
         </h1>
+        <p className="text-sm text-gray-500 mb-8">Escolha uma trilha para começar a estudar.</p>
 
         {tracks.length > 0 ? (
-          // Trilhas cadastradas → seção por trilha
-          <div className="space-y-10">
-            {tracks.map(t => {
+          // Cada trilha = um card grande clicável
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5">
+            {tracks.map((t, index) => {
               const mods = trackModules
                 .filter(tm => tm.track_id === t.id)
                 .sort((a, b) => a.order_index - b.order_index)
                 .map(tm => tm.module_name);
+              const trackVideos = videos.filter(v => mods.includes(v.module));
+              const completed = trackVideos.filter(v => userProgress[v.id]).length;
+              const percent = trackVideos.length > 0 ? Math.round((completed / trackVideos.length) * 100) : 0;
+              const cover = normalizeImageUrl(t.thumbnail_url);
+
               return (
-                <section key={t.id}>
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <h2 className="text-lg font-semibold text-white">{t.name}</h2>
-                      {t.description && <p className="text-sm text-gray-500 mt-0.5">{t.description}</p>}
+                <motion.button
+                  key={t.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.05 }}
+                  onClick={() => onNavigate({ name: 'trilha', trackId: t.id })}
+                  className="group text-left focus:outline-none"
+                >
+                  {/* Capa da trilha (poster 9:16) */}
+                  <div
+                    className="relative w-full rounded-2xl overflow-hidden bg-gray-800 border border-gray-700/50 shadow-lg group-hover:scale-[1.03] group-hover:shadow-[0_0_25px_rgba(34,211,238,0.25)] group-hover:border-cyan-500/40 transition-all duration-200"
+                    style={{ aspectRatio: '9/16' }}
+                  >
+                    {cover ? (
+                      <img src={cover} alt={t.name} className="absolute inset-0 w-full h-full object-cover" />
+                    ) : (
+                      <div className="absolute inset-0 bg-gradient-to-br from-cyan-900/40 via-gray-900 to-pink-900/20 flex items-center justify-center">
+                        <Layers className="w-14 h-14 text-cyan-500/30" />
+                      </div>
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-gray-950 via-gray-950/30 to-transparent" />
+
+                    {/* Play hover */}
+                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="w-14 h-14 bg-white/90 rounded-full flex items-center justify-center shadow-xl">
+                        <Play className="w-6 h-6 text-gray-900 fill-current ml-0.5" />
+                      </div>
                     </div>
-                    <button
-                      onClick={() => onNavigate({ name: 'trilha', trackId: t.id })}
-                      className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1 transition-colors"
-                    >
-                      Ver detalhes <ChevronRight className="w-3.5 h-3.5" />
-                    </button>
+
+                    {/* Info na base */}
+                    <div className="absolute bottom-0 left-0 right-0 p-4">
+                      <h2 className="text-base font-bold text-white leading-tight line-clamp-2 group-hover:text-cyan-300 transition-colors">
+                        {t.name}
+                      </h2>
+                      {t.description && (
+                        <p className="text-[11px] text-gray-400 mt-1 line-clamp-2">{t.description}</p>
+                      )}
+                      <div className="flex items-center gap-2 mt-2 text-[11px] text-gray-400">
+                        <Layers className="w-3.5 h-3.5 text-cyan-400" />
+                        <span>{mods.length} módulo{mods.length !== 1 ? 's' : ''}</span>
+                      </div>
+                      {percent > 0 && (
+                        <div className="w-full bg-gray-700/60 rounded-full h-1 mt-2">
+                          <div className="bg-gradient-to-r from-cyan-500 to-pink-500 h-1 rounded-full" style={{ width: `${percent}%` }} />
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <ModuleGrid moduleNames={mods} showLock />
-                </section>
+                </motion.button>
               );
             })}
           </div>
         ) : (
-          // Sem trilhas → mostra todos os módulos dos vídeos cadastrados
+          // Sem trilhas cadastradas → mostra todos os módulos soltos
           <ModuleGrid moduleNames={allModuleNames} />
+        )}
+
+        {/* Aviso quando há trilhas mas estão vazias */}
+        {tracks.length > 0 && trackModules.length === 0 && (
+          <p className="text-center text-sm text-gray-600 mt-10">
+            As trilhas ainda não têm módulos. Adicione módulos a cada trilha no Painel Admin.
+          </p>
         )}
       </div>
     );
@@ -183,7 +229,7 @@ export function TrackPage({ trackId, videos, userProgress, onNavigate }: TrackPa
       <div className="mb-8 bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
         {track!.thumbnail_url && (
           <div className="w-full h-40 relative">
-            <img src={track!.thumbnail_url} alt={track!.name} className="w-full h-full object-cover object-center" />
+            <img src={normalizeImageUrl(track!.thumbnail_url)} alt={track!.name} className="w-full h-full object-cover object-center" />
             <div className="absolute inset-0 bg-gradient-to-t from-gray-900/90 via-transparent to-transparent" />
           </div>
         )}
