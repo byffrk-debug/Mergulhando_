@@ -72,22 +72,18 @@ export function HomePage({ videos, userProgress, videoPositions, onNavigate, onP
   return (
     <div className="pb-10">
 
-      {/* ── Hero Banner (ocupa topo inteiro) ─── */}
+      {/* ── Hero Banner ─── */}
       {config.banner_image_url ? (
-        <div className="relative w-full" style={{ aspectRatio: '16/7', maxHeight: 480 }}>
+        <div className="relative w-full h-48 sm:h-56 overflow-hidden">
           <img
             src={normalizeImageUrl(config.banner_image_url)}
             alt="Banner"
-            className="w-full h-full object-cover object-center"
+            className="absolute inset-0 w-full h-full object-cover object-center"
           />
-          {/* Gradiente embaixo para transição suave com o conteúdo */}
-          <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-gray-950 to-transparent pointer-events-none" />
+          <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-gray-950 to-transparent pointer-events-none" />
         </div>
       ) : (
-        /* Placeholder enquanto não configurou */
-        <div
-          className="relative w-full flex flex-col items-center justify-center bg-gradient-to-br from-gray-900 via-cyan-950/20 to-gray-950 border-b border-gray-800"
-          style={{ aspectRatio: '16/7', maxHeight: 480 }}
+        <div className="relative w-full h-48 sm:h-56 overflow-hidden flex flex-col items-center justify-center bg-gradient-to-br from-gray-900 via-cyan-950/20 to-gray-950 border-b border-gray-800"
         >
           <BookOpen className="w-16 h-16 text-cyan-500/20 mb-3" />
           <p className="text-gray-600 text-sm">Configure o banner em Admin → Início</p>
