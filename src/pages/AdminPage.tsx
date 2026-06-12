@@ -49,7 +49,7 @@ function Section({ title, icon: Icon, children }: { title: string; icon: React.E
 }
 
 export function AdminPage({ videos, role, onVideosChange, onNavigate }: AdminPageProps) {
-  const { tracks, addTrack, updateTrack, deleteTrack, addModuleToTrack, removeModuleFromTrack, getTrackModules } = useTracks();
+  const { tracks, trackModules, addTrack, updateTrack, deleteTrack, addModuleToTrack, removeModuleFromTrack, getTrackModules } = useTracks();
   const { announcements, addAnnouncement, deleteAnnouncement } = useAnnouncements();
   const { config: homeConfig, updateConfig: updateHomeConfig } = useHomeConfig();
 
@@ -324,16 +324,31 @@ export function AdminPage({ videos, role, onVideosChange, onNavigate }: AdminPag
                   />
                 </div>
 
-                {/* Add module */}
-                <select
-                  onChange={e => { if (e.target.value) { addModuleToTrack(track.id, e.target.value, tms.length); e.target.value = ''; }}}
-                  className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-1.5 text-sm text-white outline-none focus:border-cyan-500"
-                >
-                  <option value="">+ Adicionar módulo à trilha...</option>
-                  {modules.filter(m => !tms.find(tm => tm.module_name === m)).map(m => (
-                    <option key={m} value={m}>{m}</option>
-                  ))}
-                </select>
+                {/* Add module — só módulos que NÃO estão em nenhuma trilha (exclusividade) */}
+                {(() => {
+                  // Módulos já usados em qualquer trilha (qualquer track_id)
+                  const usedModules = new Set(trackModules.map(tm => tm.module_name));
+                  const available = modules.filter(m => !usedModules.has(m));
+                  return (
+                    <>
+                      <select
+                        onChange={e => { if (e.target.value) { addModuleToTrack(track.id, e.target.value, tms.length); e.target.value = ''; }}}
+                        className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-1.5 text-sm text-white outline-none focus:border-cyan-500 disabled:opacity-50"
+                        disabled={available.length === 0}
+                      >
+                        <option value="">
+                          {available.length === 0 ? 'Nenhum módulo disponível' : '+ Adicionar módulo à trilha...'}
+                        </option>
+                        {available.map(m => (
+                          <option key={m} value={m}>{m}</option>
+                        ))}
+                      </select>
+                      <p className="text-[11px] text-gray-500 mt-1.5">
+                        Cada módulo pertence a apenas uma trilha. Para movê-lo, remova-o da trilha atual primeiro.
+                      </p>
+                    </>
+                  );
+                })()}
               </div>
             );
           })}
