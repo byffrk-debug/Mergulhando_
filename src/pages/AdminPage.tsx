@@ -293,9 +293,9 @@ export function AdminPage({ videos, role, onVideosChange, onNavigate }: AdminPag
             value={trackBanner}
             onChange={setTrackBanner}
             folder="tracks-banner"
-            aspect="16/9"
+            aspect="16/6"
             previewWidthClass="w-44"
-            label="Banner de Topo (16:9 — aparece ao abrir a trilha)"
+            label="Banner de Topo (1600×600px — aparece ao abrir a trilha)"
           />
           <button type="submit" className="flex items-center gap-2 px-4 py-2.5 bg-cyan-500 text-gray-950 rounded-xl hover:bg-cyan-400 transition-colors text-sm font-medium">
             <Plus className="w-4 h-4" /> Criar Trilha
@@ -339,9 +339,9 @@ export function AdminPage({ videos, role, onVideosChange, onNavigate }: AdminPag
                 <div className="mb-3">
                   <TrackCoverEditor
                     initial={track.banner_url ?? ''}
-                    label="Banner de Topo (16:9 — aparece ao abrir a trilha)"
+                    label="Banner de Topo (1600×600px — aparece ao abrir a trilha)"
                     folder="tracks-banner"
-                    aspect="16/9"
+                    aspect="16/6"
                     previewWidthClass="w-44"
                     saveLabel="Salvar banner"
                     onSave={async (url) => {
