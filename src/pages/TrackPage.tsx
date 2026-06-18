@@ -231,7 +231,7 @@ export function TrackPage({ trackId, videos, userProgress, onNavigate }: TrackPa
         return banner ? (
           // Banner paisagem dedicado → imagem de topo bonita com texto sobreposto
           <div className="mb-8 relative rounded-2xl overflow-hidden border border-gray-800">
-            <div className="w-full aspect-[16/6] sm:aspect-[16/5] relative">
+            <div className="w-full aspect-video relative">
               <img src={banner} alt={track!.name} className="absolute inset-0 w-full h-full object-cover object-center" />
               <div className="absolute inset-0 bg-gradient-to-t from-gray-950 via-gray-950/40 to-transparent" />
             </div>
