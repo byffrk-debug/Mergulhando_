@@ -226,22 +226,33 @@ export function TrackPage({ trackId, videos, userProgress, onNavigate }: TrackPa
         <ChevronLeft className="w-4 h-4" /> Trilha de Estudos
       </button>
 
-      <div className="mb-8 bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
-        {track!.thumbnail_url && (
-          <div className="w-full h-40 relative">
-            <img src={normalizeImageUrl(track!.thumbnail_url)} alt={track!.name} className="w-full h-full object-cover object-center" />
-            <div className="absolute inset-0 bg-gradient-to-t from-gray-900/90 via-transparent to-transparent" />
+      {(() => {
+        const banner = normalizeImageUrl(track!.banner_url);
+        return banner ? (
+          // Banner paisagem dedicado → imagem de topo bonita com texto sobreposto
+          <div className="mb-8 relative rounded-2xl overflow-hidden border border-gray-800">
+            <div className="w-full aspect-[16/6] sm:aspect-[16/5] relative">
+              <img src={banner} alt={track!.name} className="absolute inset-0 w-full h-full object-cover object-center" />
+              <div className="absolute inset-0 bg-gradient-to-t from-gray-950 via-gray-950/40 to-transparent" />
+            </div>
+            <div className="absolute bottom-0 left-0 right-0 p-6">
+              <h1 className="text-2xl sm:text-3xl font-bold text-white drop-shadow-lg">{track!.name}</h1>
+              {track!.description && <p className="text-gray-200 mt-1 text-sm max-w-2xl drop-shadow">{track!.description}</p>}
+              <p className="text-xs text-gray-300 mt-2">{trackModuleList.length} módulo{trackModuleList.length !== 1 ? 's' : ''}</p>
+            </div>
           </div>
-        )}
-        <div className="p-6">
-          <div className="flex items-center gap-3 mb-2">
-            <BookOpen className="w-7 h-7 text-cyan-400" />
-            <h1 className="text-2xl font-bold text-white">{track!.name}</h1>
+        ) : (
+          // Sem banner → cabeçalho simples (sem esticar a capa 9:16)
+          <div className="mb-8 bg-gray-900 border border-gray-800 rounded-2xl p-6">
+            <div className="flex items-center gap-3 mb-2">
+              <BookOpen className="w-7 h-7 text-cyan-400" />
+              <h1 className="text-2xl font-bold text-white">{track!.name}</h1>
+            </div>
+            {track!.description && <p className="text-gray-400 mt-2">{track!.description}</p>}
+            <p className="text-sm text-gray-500 mt-3">{trackModuleList.length} módulo{trackModuleList.length !== 1 ? 's' : ''}</p>
           </div>
-          {track!.description && <p className="text-gray-400 mt-2">{track!.description}</p>}
-          <p className="text-sm text-gray-500 mt-3">{trackModuleList.length} módulo{trackModuleList.length !== 1 ? 's' : ''}</p>
-        </div>
-      </div>
+        );
+      })()}
 
       <ModuleGrid moduleNames={trackModuleList.map(tm => tm.module_name)} showLock />
     </div>

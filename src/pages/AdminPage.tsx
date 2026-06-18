@@ -71,6 +71,7 @@ export function AdminPage({ videos, role, onVideosChange, onNavigate }: AdminPag
   const [trackName, setTrackName] = useState('');
   const [trackDesc, setTrackDesc] = useState('');
   const [trackThumbnail, setTrackThumbnail] = useState('');
+  const [trackBanner, setTrackBanner] = useState('');
 
   // Announcement form
   const [annContent, setAnnContent] = useState('');
@@ -115,10 +116,11 @@ export function AdminPage({ videos, role, onVideosChange, onNavigate }: AdminPag
       name: trackName,
       description: trackDesc || undefined,
       thumbnail_url: trackThumbnail || undefined,
+      banner_url: trackBanner || undefined,
       order_index: tracks.length,
     });
     if (result) {
-      setTrackName(''); setTrackDesc(''); setTrackThumbnail('');
+      setTrackName(''); setTrackDesc(''); setTrackThumbnail(''); setTrackBanner('');
       toast.success('Trilha criada!');
     } else {
       toast.error('Erro ao criar trilha. Verifique as permissões no Supabase.');
@@ -285,7 +287,15 @@ export function AdminPage({ videos, role, onVideosChange, onNavigate }: AdminPag
             value={trackThumbnail}
             onChange={setTrackThumbnail}
             folder="tracks"
-            label="Capa da Trilha (9:16 — formato retrato)"
+            label="Capa da Trilha (9:16 — retrato, aparece na lista de trilhas)"
+          />
+          <CoverUpload
+            value={trackBanner}
+            onChange={setTrackBanner}
+            folder="tracks-banner"
+            aspect="16/6"
+            previewWidthClass="w-44"
+            label="Banner de Topo (paisagem — aparece ao abrir a trilha)"
           />
           <button type="submit" className="flex items-center gap-2 px-4 py-2.5 bg-cyan-500 text-gray-950 rounded-xl hover:bg-cyan-400 transition-colors text-sm font-medium">
             <Plus className="w-4 h-4" /> Criar Trilha
@@ -312,14 +322,32 @@ export function AdminPage({ videos, role, onVideosChange, onNavigate }: AdminPag
                     </span>
                   ))}
                 </div>
-                {/* Capa da trilha (qualquer imagem 9:16) */}
+                {/* Capa da trilha (9:16 — lista de trilhas) */}
                 <div className="mb-3">
                   <TrackCoverEditor
                     initial={track.thumbnail_url ?? ''}
+                    label="Capa desta Trilha (9:16 — aparece na lista)"
                     onSave={async (url) => {
                       const ok = await updateTrack(track.id, { thumbnail_url: url || undefined });
                       if (ok) toast.success('Capa da trilha atualizada!');
                       else toast.error('Erro ao salvar capa.');
+                    }}
+                  />
+                </div>
+
+                {/* Banner de topo (paisagem — ao abrir a trilha) */}
+                <div className="mb-3">
+                  <TrackCoverEditor
+                    initial={track.banner_url ?? ''}
+                    label="Banner de Topo (paisagem — aparece ao abrir a trilha)"
+                    folder="tracks-banner"
+                    aspect="16/6"
+                    previewWidthClass="w-44"
+                    saveLabel="Salvar banner"
+                    onSave={async (url) => {
+                      const ok = await updateTrack(track.id, { banner_url: url || undefined });
+                      if (ok) toast.success('Banner da trilha atualizado!');
+                      else toast.error('Erro ao salvar banner.');
                     }}
                   />
                 </div>
@@ -403,7 +431,15 @@ export function AdminPage({ videos, role, onVideosChange, onNavigate }: AdminPag
   );
 }
 
-function TrackCoverEditor({ initial, onSave }: { initial: string; onSave: (url: string) => Promise<void> }) {
+function TrackCoverEditor({ initial, onSave, label, folder = 'tracks', aspect = '9/16', previewWidthClass = 'w-24', saveLabel = 'Salvar capa' }: {
+  initial: string;
+  onSave: (url: string) => Promise<void>;
+  label: string;
+  folder?: string;
+  aspect?: string;
+  previewWidthClass?: string;
+  saveLabel?: string;
+}) {
   const [value, setValue] = useState(initial);
   const [saving, setSaving] = useState(false);
   const dirty = value !== initial;
@@ -419,8 +455,10 @@ function TrackCoverEditor({ initial, onSave }: { initial: string; onSave: (url: 
       <CoverUpload
         value={value}
         onChange={setValue}
-        folder="tracks"
-        label="Capa desta Trilha (9:16 — qualquer imagem)"
+        folder={folder}
+        aspect={aspect}
+        previewWidthClass={previewWidthClass}
+        label={label}
       />
       {dirty && (
         <button
@@ -429,7 +467,7 @@ function TrackCoverEditor({ initial, onSave }: { initial: string; onSave: (url: 
           disabled={saving}
           className="px-4 py-1.5 bg-cyan-500 text-gray-950 rounded-lg hover:bg-cyan-400 transition-colors text-xs font-medium disabled:opacity-50"
         >
-          {saving ? 'Salvando...' : 'Salvar capa'}
+          {saving ? 'Salvando...' : saveLabel}
         </button>
       )}
     </div>

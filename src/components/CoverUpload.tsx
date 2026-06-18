@@ -8,9 +8,11 @@ interface CoverUploadProps {
   onChange: (url: string) => void;
   folder?: string;
   label?: string;
+  aspect?: string;            // ex: '9/16' (retrato) ou '16/9' (paisagem/banner)
+  previewWidthClass?: string; // largura do preview, ex: 'w-24' ou 'w-44'
 }
 
-export function CoverUpload({ value, onChange, folder = 'misc', label = 'Capa 9:16' }: CoverUploadProps) {
+export function CoverUpload({ value, onChange, folder = 'misc', label = 'Capa 9:16', aspect = '9/16', previewWidthClass = 'w-24' }: CoverUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
 
@@ -35,13 +37,13 @@ export function CoverUpload({ value, onChange, folder = 'misc', label = 'Capa 9:
     <div>
       <label className="block text-xs text-gray-400 mb-1">{label}</label>
       <div className="flex items-start gap-3">
-        {/* Preview 9:16 */}
+        {/* Preview */}
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
           disabled={uploading}
-          className="relative flex-shrink-0 w-24 rounded-xl overflow-hidden bg-gray-800 border-2 border-dashed border-gray-700 hover:border-cyan-500 transition-colors group"
-          style={{ aspectRatio: '9/16' }}
+          className={`relative flex-shrink-0 ${previewWidthClass} rounded-xl overflow-hidden bg-gray-800 border-2 border-dashed border-gray-700 hover:border-cyan-500 transition-colors group`}
+          style={{ aspectRatio: aspect }}
         >
           {value ? (
             <img src={normalizeImageUrl(value)} alt="Capa" className="absolute inset-0 w-full h-full object-cover" />
@@ -52,7 +54,7 @@ export function CoverUpload({ value, onChange, folder = 'misc', label = 'Capa 9:
               ) : (
                 <>
                   <Image className="w-5 h-5" />
-                  <span className="text-[9px] text-center leading-tight px-1">9:16<br/>Capa</span>
+                  <span className="text-[9px] text-center leading-tight px-1">{aspect.replace('/', ':')}</span>
                 </>
               )}
             </div>

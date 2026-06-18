@@ -23,6 +23,7 @@ export type Track = {
   name: string;
   description?: string;
   thumbnail_url?: string;
+  banner_url?: string;
   order_index: number;
 };
 

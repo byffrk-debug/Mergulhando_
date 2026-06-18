@@ -24,6 +24,7 @@ export function useTracks() {
     const payload: Record<string, unknown> = { name: track.name, order_index: track.order_index };
     if (track.description) payload.description = track.description;
     if (track.thumbnail_url) payload.thumbnail_url = track.thumbnail_url;
+    if (track.banner_url) payload.banner_url = track.banner_url;
 
     const { data, error } = await supabase.from('tracks').insert([payload]).select().single();
     if (error) { console.error('addTrack error:', error); return null; }
