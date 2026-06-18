@@ -68,11 +68,10 @@ export function ProfilePage({ user, role, videos, userProgress, quizPassed, onAv
       const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path);
       const publicUrl = urlData.publicUrl + `?t=${Date.now()}`; // cache bust
 
-      // Salvar em user_profiles
+      // Salvar em user_profiles (upsert: cria a linha se ainda não existir)
       const { error: dbErr } = await supabase
         .from('user_profiles')
-        .update({ avatar_url: publicUrl })
-        .eq('user_id', user.id);
+        .upsert({ user_id: user.id, name: user.name, avatar_url: publicUrl }, { onConflict: 'user_id' });
 
       if (dbErr) {
         toast.error('Imagem enviada, mas erro ao salvar: ' + dbErr.message);
