@@ -307,7 +307,7 @@ export function CommunityPage({ user, role, onNavigate }: CommunityPageProps) {
           </h1>
           <p className="text-gray-400 mt-1 text-sm">Conecte-se, tire dúvidas e compartilhe experiências</p>
         </div>
-        {role === 'admin' && (
+        {(role === 'admin' || role === 'moderator') && (
           <button
             onClick={() => setShowForm(v => !v)}
             className="flex items-center gap-2 px-4 py-2 bg-cyan-500 text-gray-950 rounded-xl font-medium hover:bg-cyan-400 transition-colors flex-shrink-0"
@@ -350,7 +350,7 @@ export function CommunityPage({ user, role, onNavigate }: CommunityPageProps) {
         <div className="text-center py-20 text-gray-500">
           <Users className="w-16 h-16 mx-auto mb-4 opacity-20" />
           <p className="text-lg">Nenhum espaço criado ainda.</p>
-          {role === 'admin' && <p className="text-sm mt-2">Clique em "Novo Espaço" para começar.</p>}
+          {(role === 'admin' || role === 'moderator') && <p className="text-sm mt-2">Clique em "Novo Espaço" para começar.</p>}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-[200px_1fr] gap-5">
