@@ -538,7 +538,7 @@ export default function App() {
           />
         );
       case 'comunidade':
-        return <CommunityPage role={role} onNavigate={setCurrentView} />;
+        return <CommunityPage user={user} role={role} onNavigate={setCurrentView} />;
       case 'canal':
         return <ChannelPage channelId={currentView.channelId} user={user} role={role} onNavigate={setCurrentView} />;
       case 'post':
