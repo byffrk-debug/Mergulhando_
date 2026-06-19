@@ -9,7 +9,7 @@ interface Props {
   moduleName: string;
   userId: string;
   onClose: () => void;
-  onPassed: () => void;
+  onPassed: (score: number) => void;
 }
 
 type Phase = 'loading' | 'intro' | 'taking' | 'result';
@@ -65,7 +65,7 @@ export function QuizTaker({ moduleName, userId, onClose, onPassed }: Props) {
     setSubmitting(false);
     setPhase('result');
 
-    if (passed) onPassed();
+    if (passed) onPassed(score);
   };
 
   const handleRetake = () => {

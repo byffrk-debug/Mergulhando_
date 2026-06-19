@@ -553,7 +553,7 @@ export default function App() {
       case 'post':
         return <PostDetailPage postId={currentView.postId} channelId={currentView.channelId} user={user} role={role} onNavigate={setCurrentView} />;
       case 'perfil':
-        return <ProfilePage user={user} role={role} videos={videos} userProgress={userProgress} quizPassed={quizPassed} quizScores={quizScores} onAvatarUpdate={(url) => setUser(u => u ? { ...u, avatar_url: url } : u)} />;
+        return <ProfilePage user={user} role={role} videos={videos} userProgress={userProgress} quizPassed={quizPassed} quizScores={quizScores} onAvatarUpdate={(url) => setUser(u => u ? { ...u, avatar_url: url } : u)} onOpenCertificate={setActiveCertificateModule} />;
       case 'admin':
         return (role === 'admin' || role === 'moderator')
           ? <AdminPage videos={videos} role={role} onVideosChange={fetchVideos} onNavigate={setCurrentView} />
@@ -592,8 +592,12 @@ export default function App() {
             moduleName={activeQuizModule}
             userId={user.id}
             onClose={() => setActiveQuizModule(null)}
-            onPassed={() => {
+            onPassed={(score) => {
               setQuizPassed(prev => ({ ...prev, [activeQuizModule]: true }));
+              setQuizScores(prev => ({
+                ...prev,
+                [activeQuizModule]: Math.max(prev[activeQuizModule] ?? 0, score),
+              }));
               setActiveQuizModule(null);
             }}
           />

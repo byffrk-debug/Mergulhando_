@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { Award, Camera, Loader2 } from 'lucide-react';
+import { Award, Camera, Loader2, Download } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '../lib/supabase';
 import type { Video, User, UserRole } from '../types';
@@ -12,9 +12,10 @@ interface ProfilePageProps {
   quizPassed: Record<string, boolean>;
   quizScores: Record<string, number>;
   onAvatarUpdate: (url: string) => void;
+  onOpenCertificate: (moduleName: string) => void;
 }
 
-export function ProfilePage({ user, role, videos, userProgress, quizPassed, quizScores, onAvatarUpdate }: ProfilePageProps) {
+export function ProfilePage({ user, role, videos, userProgress, quizPassed, quizScores, onAvatarUpdate, onOpenCertificate }: ProfilePageProps) {
   const completedCount = videos.filter(v => userProgress[v.id]).length;
   const totalVideos = videos.length;
   const progressPercent = totalVideos > 0 ? Math.round((completedCount / totalVideos) * 100) : 0;
@@ -191,15 +192,21 @@ export function ProfilePage({ user, role, videos, userProgress, quizPassed, quiz
           </h3>
           <div className="space-y-2">
             {earnedCertificates.map(mod => (
-              <div key={mod} className="flex items-center gap-3 p-3 bg-yellow-500/5 border border-yellow-500/20 rounded-xl">
+              <button
+                key={mod}
+                onClick={() => onOpenCertificate(mod)}
+                className="group w-full flex items-center gap-3 p-3 bg-yellow-500/5 border border-yellow-500/20 rounded-xl text-left transition-all hover:bg-yellow-500/10 hover:border-yellow-500/40"
+                title="Clique para visualizar e baixar o certificado"
+              >
                 <Award className="w-5 h-5 text-yellow-400 flex-shrink-0" />
-                <p className="text-sm text-yellow-300 flex-1">{mod}</p>
+                <p className="text-sm text-yellow-300 flex-1 group-hover:text-yellow-200">{mod}</p>
                 {quizScores[mod] != null && (
                   <span className="flex-shrink-0 text-xs font-semibold text-yellow-300 bg-yellow-500/15 border border-yellow-500/30 rounded-full px-2.5 py-1">
                     Nota: {quizScores[mod]}%
                   </span>
                 )}
-              </div>
+                <Download className="w-4 h-4 text-yellow-500/70 flex-shrink-0 group-hover:text-yellow-300" />
+              </button>
             ))}
           </div>
         </div>
