@@ -3,6 +3,7 @@ import { Play, CheckCircle, Lock, Award, Sparkles, ChevronLeft } from 'lucide-re
 import { motion } from 'motion/react';
 import { QuizBadge } from '../components/quiz/QuizBadge';
 import { getThumbnail } from '../utils/thumbnail';
+import { useTracks } from '../hooks/useTracks';
 import type { Video, AppView, UserRole } from '../types';
 
 interface ModulePageProps {
@@ -23,6 +24,11 @@ export function ModulePage({
   moduleName, videos, allVideos, userProgress, videoPositions, quizPassed,
   role, onNavigate, onPlayVideo, onOpenQuiz, onOpenCertificate,
 }: ModulePageProps) {
+  const { trackModules } = useTracks();
+  // Trilha à qual este módulo pertence (para o botão "Voltar")
+  const parentTrackId = trackModules.find(tm => tm.module_name === moduleName)?.track_id ?? '';
+  const goBack = () => onNavigate({ name: 'trilha', trackId: parentTrackId });
+
   const modules = Array.from(new Set(allVideos.map(v => v.module)));
   const moduleIndex = modules.indexOf(moduleName);
   const prevModule = moduleIndex > 0 ? modules[moduleIndex - 1] : null;
@@ -41,10 +47,10 @@ export function ModulePage({
     <div className="p-6 max-w-4xl mx-auto">
       {/* Back */}
       <button
-        onClick={() => onNavigate({ name: 'home' })}
+        onClick={goBack}
         className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors mb-6"
       >
-        <ChevronLeft className="w-4 h-4" /> Voltar
+        <ChevronLeft className="w-4 h-4" /> {parentTrackId ? 'Voltar para a trilha' : 'Voltar'}
       </button>
 
       {/* Header */}
