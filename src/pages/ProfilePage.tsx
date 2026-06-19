@@ -10,10 +10,11 @@ interface ProfilePageProps {
   videos: Video[];
   userProgress: Record<string, boolean>;
   quizPassed: Record<string, boolean>;
+  quizScores: Record<string, number>;
   onAvatarUpdate: (url: string) => void;
 }
 
-export function ProfilePage({ user, role, videos, userProgress, quizPassed, onAvatarUpdate }: ProfilePageProps) {
+export function ProfilePage({ user, role, videos, userProgress, quizPassed, quizScores, onAvatarUpdate }: ProfilePageProps) {
   const completedCount = videos.filter(v => userProgress[v.id]).length;
   const totalVideos = videos.length;
   const progressPercent = totalVideos > 0 ? Math.round((completedCount / totalVideos) * 100) : 0;
@@ -192,7 +193,12 @@ export function ProfilePage({ user, role, videos, userProgress, quizPassed, onAv
             {earnedCertificates.map(mod => (
               <div key={mod} className="flex items-center gap-3 p-3 bg-yellow-500/5 border border-yellow-500/20 rounded-xl">
                 <Award className="w-5 h-5 text-yellow-400 flex-shrink-0" />
-                <p className="text-sm text-yellow-300">{mod}</p>
+                <p className="text-sm text-yellow-300 flex-1">{mod}</p>
+                {quizScores[mod] != null && (
+                  <span className="flex-shrink-0 text-xs font-semibold text-yellow-300 bg-yellow-500/15 border border-yellow-500/30 rounded-full px-2.5 py-1">
+                    Nota: {quizScores[mod]}%
+                  </span>
+                )}
               </div>
             ))}
           </div>

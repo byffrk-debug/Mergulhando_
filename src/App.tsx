@@ -393,6 +393,7 @@ export default function App() {
   const [userProgress, setUserProgress] = useState<Record<string, boolean>>({});
   const [videoPositions, setVideoPositions] = useState<Record<string, number>>({});
   const [quizPassed, setQuizPassed] = useState<Record<string, boolean>>({});
+  const [quizScores, setQuizScores] = useState<Record<string, number>>({});
   const [currentView, setCurrentView] = useState<AppView>({ name: 'home' });
   const [activeVideo, setActiveVideo] = useState<Video | null>(null);
   const [activeQuizModule, setActiveQuizModule] = useState<string | null>(null);
@@ -456,10 +457,17 @@ export default function App() {
   };
 
   const fetchQuizPassed = async (userId: string) => {
-    const { data } = await supabase.from('quiz_attempts').select('quiz_id, passed, quizzes(module_name)').eq('user_id', userId).eq('passed', true);
+    const { data } = await supabase.from('quiz_attempts').select('quiz_id, passed, score, quizzes(module_name)').eq('user_id', userId).eq('passed', true);
     const passed: Record<string, boolean> = {};
-    (data ?? []).forEach((a: any) => { if (a.quizzes?.module_name) passed[a.quizzes.module_name] = true; });
+    const scores: Record<string, number> = {};
+    (data ?? []).forEach((a: any) => {
+      const mod = a.quizzes?.module_name;
+      if (!mod) return;
+      passed[mod] = true;
+      if (a.score != null && (scores[mod] == null || a.score > scores[mod])) scores[mod] = a.score;
+    });
     setQuizPassed(passed);
+    setQuizScores(scores);
   };
 
   const saveVideoPosition = async (videoId: string, position: number) => {
@@ -545,7 +553,7 @@ export default function App() {
       case 'post':
         return <PostDetailPage postId={currentView.postId} channelId={currentView.channelId} user={user} role={role} onNavigate={setCurrentView} />;
       case 'perfil':
-        return <ProfilePage user={user} role={role} videos={videos} userProgress={userProgress} quizPassed={quizPassed} onAvatarUpdate={(url) => setUser(u => u ? { ...u, avatar_url: url } : u)} />;
+        return <ProfilePage user={user} role={role} videos={videos} userProgress={userProgress} quizPassed={quizPassed} quizScores={quizScores} onAvatarUpdate={(url) => setUser(u => u ? { ...u, avatar_url: url } : u)} />;
       case 'admin':
         return (role === 'admin' || role === 'moderator')
           ? <AdminPage videos={videos} role={role} onVideosChange={fetchVideos} onNavigate={setCurrentView} />
