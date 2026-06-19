@@ -39,7 +39,7 @@ Retorne APENAS JSON válido, sem markdown, sem explicação:
 [{"question_text":"...","options":["A","B","C","D"],"correct_index":0}]`;
 
     const geminiRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
