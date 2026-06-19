@@ -235,7 +235,9 @@ export function AdminPage({ videos, role, onVideosChange, onNavigate }: AdminPag
             value={newThumbnail}
             onChange={setNewThumbnail}
             folder="videos"
-            label="Capa da Aula (9:16 — formato retrato)"
+            aspect="16/9"
+            previewWidthClass="w-44"
+            label="Capa da Aula (16:9 — 1280×720)"
           />
           <button type="submit" className="flex items-center gap-2 px-5 py-2.5 bg-cyan-500 text-gray-950 font-medium rounded-xl hover:bg-cyan-400 transition-colors">
             <Plus className="w-4 h-4" /> Adicionar Aula
