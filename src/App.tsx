@@ -527,6 +527,7 @@ export default function App() {
             moduleName={currentView.moduleName}
             videos={videos.filter(v => v.module === currentView.moduleName)}
             allVideos={videos}
+            userId={user.id}
             userProgress={userProgress}
             videoPositions={videoPositions}
             quizPassed={quizPassed}

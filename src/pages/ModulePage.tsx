@@ -10,6 +10,7 @@ interface ModulePageProps {
   moduleName: string;
   videos: Video[];
   allVideos: Video[];
+  userId: string;
   userProgress: Record<string, boolean>;
   videoPositions: Record<string, number>;
   quizPassed: Record<string, boolean>;
@@ -21,7 +22,7 @@ interface ModulePageProps {
 }
 
 export function ModulePage({
-  moduleName, videos, allVideos, userProgress, videoPositions, quizPassed,
+  moduleName, videos, allVideos, userId, userProgress, videoPositions, quizPassed,
   role, onNavigate, onPlayVideo, onOpenQuiz, onOpenCertificate,
 }: ModulePageProps) {
   const { trackModules } = useTracks();
@@ -153,11 +154,11 @@ export function ModulePage({
         })}
       </div>
 
-      {/* Quiz badge */}
-      {isComplete && role !== 'admin' && role !== 'moderator' && (
+      {/* Quiz badge — aparece ao concluir o módulo (admin/moderador veem sempre p/ verificar) */}
+      {(isComplete || role === 'admin' || role === 'moderator') && (
         <QuizBadge
           moduleName={moduleName}
-          userId=""
+          userId={userId}
           onTakeQuiz={() => onOpenQuiz(moduleName)}
         />
       )}
