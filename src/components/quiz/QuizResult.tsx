@@ -8,12 +8,13 @@ interface Props {
   passingScore: number;
   questions: QuizQuestion[];
   answers: number[];
+  correctIndexes: number[];
   onRetake: () => void;
   onClose: () => void;
 }
 
-export function QuizResult({ score, passed, passingScore, questions, answers, onRetake, onClose }: Props) {
-  const correctCount = answers.filter((ans, i) => ans === questions[i]?.correct_index).length;
+export function QuizResult({ score, passed, passingScore, questions, answers, correctIndexes, onRetake, onClose }: Props) {
+  const correctCount = answers.filter((ans, i) => ans === correctIndexes[i]).length;
 
   return (
     <motion.div
@@ -62,7 +63,8 @@ export function QuizResult({ score, passed, passingScore, questions, answers, on
 
         {questions.map((q, qi) => {
           const userAnswer = answers[qi];
-          const isCorrect = userAnswer === q.correct_index;
+          const rightAnswer = correctIndexes[qi];
+          const isCorrect = userAnswer === rightAnswer;
 
           return (
             <div
@@ -87,7 +89,7 @@ export function QuizResult({ score, passed, passingScore, questions, answers, on
               <div className="space-y-1.5 ml-6">
                 {q.options.map((opt, oi) => {
                   const isUserChoice = oi === userAnswer;
-                  const isRightAnswer = oi === q.correct_index;
+                  const isRightAnswer = oi === rightAnswer;
 
                   let style = 'text-gray-600 border-transparent bg-transparent';
                   if (isRightAnswer) style = 'text-cyan-300 border-cyan-500/40 bg-cyan-500/10 font-medium';

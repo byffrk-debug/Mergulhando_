@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { X, ClipboardList, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { toast } from 'sonner';
 import { supabase } from '../../lib/supabase';
 import { useQuiz } from '../../hooks/useQuiz';
 import { QuizResult } from './QuizResult';
@@ -22,6 +23,7 @@ export function QuizTaker({ moduleName, userId, onClose, onPassed }: Props) {
   const [answers, setAnswers] = useState<number[]>([]);
   const [selected, setSelected] = useState<number | null>(null);
   const [result, setResult] = useState<{ score: number; passed: boolean } | null>(null);
+  const [correctIndexes, setCorrectIndexes] = useState<number[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
   const handleStart = () => {
@@ -47,25 +49,39 @@ export function QuizTaker({ moduleName, userId, onClose, onPassed }: Props) {
     if (!quiz) return;
     setSubmitting(true);
 
-    const correct = finalAnswers.filter(
-      (ans, i) => ans === questions[i].correct_index
-    ).length;
-    const score = Math.round((correct / questions.length) * 100);
-    const passed = score >= quiz.passing_score;
+    try {
+      // Correção é feita no SERVIDOR (o gabarito não existe no navegador)
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) { toast.error('Sessão expirada. Faça login novamente.'); setSubmitting(false); return; }
 
-    await supabase.from('quiz_attempts').insert([{
-      user_id: userId,
-      quiz_id: quiz.id,
-      score,
-      passed,
-      answers: finalAnswers,
-    }]);
+      const res = await fetch('/api/submit-quiz', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ quizId: quiz.id, answers: finalAnswers }),
+      });
+      const json = await res.json();
 
-    setResult({ score, passed });
-    setSubmitting(false);
-    setPhase('result');
+      if (!res.ok) {
+        toast.error(json.error || 'Erro ao enviar o quiz. Tente novamente.');
+        setSubmitting(false);
+        return;
+      }
 
-    if (passed) onPassed(score);
+      const { score, passed, correctIndexes: serverCorrect } = json as {
+        score: number; passed: boolean; correctIndexes: number[];
+      };
+
+      setCorrectIndexes(serverCorrect ?? []);
+      setResult({ score, passed });
+      setSubmitting(false);
+      setPhase('result');
+
+      if (passed) onPassed(score);
+    } catch {
+      toast.error('Erro de conexão ao enviar o quiz.');
+      setSubmitting(false);
+    }
   };
 
   const handleRetake = () => {
@@ -188,6 +204,7 @@ export function QuizTaker({ moduleName, userId, onClose, onPassed }: Props) {
               passingScore={quiz.passing_score}
               questions={questions}
               answers={answers}
+              correctIndexes={correctIndexes}
               onRetake={handleRetake}
               onClose={onClose}
             />

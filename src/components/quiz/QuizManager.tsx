@@ -24,7 +24,7 @@ const emptyDraft = (): DraftQuestion => ({
 });
 
 export function QuizManager({ moduleName, moduleVideos }: Props) {
-  const { quiz, questions, loading, refetch } = useQuiz(moduleName);
+  const { quiz, questions, loading, refetch } = useQuiz(moduleName, true);
 
   const [expanded, setExpanded] = useState(false);
   const [creating, setCreating] = useState(false);

@@ -11,7 +11,7 @@ export interface QuizQuestion {
   quiz_id: string;
   question_text: string;
   options: string[];
-  correct_index: number;
+  correct_index?: number; // só no servidor; no cliente vem indefinido (gabarito protegido)
   position: number;
 }
 
